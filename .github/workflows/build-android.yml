@@ -37,17 +37,17 @@ jobs:
           java-version: '17'
 
       - name: Build Android APK
-        uses: reactivecircus/android-build-action@v0.2.0
-        with:
-          releaseType: debug
-          projectDir: android
-          artifactName: GPTImage2-debug.apk
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GPTImage2-debug
           path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 5
 
   release:
     needs: build
