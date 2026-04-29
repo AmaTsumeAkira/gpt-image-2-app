@@ -1,0 +1,16 @@
+node_modules
+dist
+*.local
+*.zip
+tsconfig.tsbuildinfo
+
+# Capacitor
+/android/app/build/
+/android/.gradle/
+/android/.idea/
+/android/*.local.properties
+/android/capacitor.settings.gradle
+
+# OS
+.DS_Store
+Thumbs.db
