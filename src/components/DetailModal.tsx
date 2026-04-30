@@ -204,7 +204,7 @@ export default function DetailModal() {
         </div>
 
         {/* 左侧：图片 */}
-        <div className="relative bg-gray-100 md:w-[480px] lg:w-[560px] flex-shrink-0 flex items-center justify-center min-h-[160px] max-h-[38vh] md:min-h-[400px] md:max-h-none overflow-hidden">
+        <div className="relative bg-gray-100 md:w-[480px] lg:w-[560px] flex-shrink-0 flex items-center justify-center min-h-[160px] max-h-[30vh] md:min-h-[400px] md:max-h-none overflow-hidden">
           {task.status === 'completed' && currentImageUrl ? (
             <>
               <img
@@ -274,7 +274,7 @@ export default function DetailModal() {
         </div>
 
         {/* 右侧：信息 */}
-        <div className="flex-1 flex flex-col p-5 min-w-0 min-h-0 md:w-80 overflow-y-auto overscroll-contain" data-scroll>
+        <div className="flex-1 flex flex-col p-5 min-w-0 min-h-0 md:w-80 overflow-y-auto overscroll-contain" style={{ maxHeight: mobile ? 'calc(92vh - 30vh - 40px - 20px)' : undefined }} data-scroll>
           {/* 桌面端关闭按钮 */}
           <div className="hidden md:flex justify-end mb-2">
             <button
