@@ -23,6 +23,7 @@ import MaskEditor from './components/MaskEditor'
 import ConfirmDialog from './components/ConfirmDialog'
 import Toast from './components/Toast'
 import BottomNav from './components/BottomNav'
+import UpdateBanner from './components/UpdateBanner'
 
 export default function App() {
   const setSettings = useStore((s) => s.setSettings)
@@ -96,6 +97,7 @@ export default function App() {
   return (
     <>
       <Header />
+      <UpdateBanner />
       {/* 离线提示 */}
       {offline && (
         <div className="fixed top-14 left-0 right-0 z-50 bg-red-500 text-white text-center py-1.5 text-xs font-medium" style={{ top: 'calc(3.5rem + var(--safe-top))' }}>

@@ -5,7 +5,12 @@ interface GallerySaverPlugin {
   saveToGallery(options: { filePath: string; fileName: string; mimeType: string }): Promise<{ uri: string; displayName: string }>
 }
 
+interface InstallerPlugin {
+  installApk(options: { filePath: string }): Promise<void>
+}
+
 const GallerySaver = registerPlugin<GallerySaverPlugin>('GallerySaver')
+export const Installer = registerPlugin<InstallerPlugin>('Installer')
 
 /** 触觉反馈 */
 export async function hapticImpact(style: 'light' | 'medium' | 'heavy' = 'light') {

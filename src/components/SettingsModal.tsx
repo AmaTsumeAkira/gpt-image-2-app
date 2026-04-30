@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS, type AppSettings } from '../types'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { isNative } from '../lib/platform'
+import { checkForUpdate, APP_VERSION } from '../lib/version'
 
 export default function SettingsModal() {
   const showSettings = useStore((s) => s.showSettings)
@@ -341,6 +342,35 @@ export default function SettingsModal() {
                 className="flex-1 py-2 rounded-xl text-sm font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
               >
                 清空所有数据
+              </button>
+            </div>
+          </section>
+
+          {/* 关于 / 检查更新 */}
+          <section>
+            <h4 className="mb-4 text-sm font-medium text-gray-800 flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              关于
+            </h4>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">当前版本 v{APP_VERSION}</span>
+              <button
+                onClick={async () => {
+                  showToast('正在检查更新...', 'info')
+                  const result = await checkForUpdate()
+                  if (result?.hasUpdate) {
+                    showToast(`发现新版本 v${result.latestVersion}，请返回首页更新`, 'success')
+                  } else if (result) {
+                    showToast('已是最新版本', 'success')
+                  } else {
+                    showToast('检查更新失败', 'error')
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              >
+                检查更新
               </button>
             </div>
           </section>
