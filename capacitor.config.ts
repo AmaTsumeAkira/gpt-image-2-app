@@ -4,6 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.gptimage.app',
   appName: 'GPT Image',
   webDir: 'dist',
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
   server: {
     allowNavigation: [
       'dm-fox.rjj.cc',
