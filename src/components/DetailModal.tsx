@@ -178,17 +178,19 @@ export default function DetailModal() {
       <div
         className={`relative bg-white/90 backdrop-blur-xl border border-white/50 sm:rounded-3xl rounded-t-3xl shadow-[0_8px_40px_rgb(0,0,0,0.12)] max-w-4xl w-full sm:max-h-[90vh] max-h-[92vh] overflow-hidden flex flex-col md:flex-row z-10 ring-1 ring-black/5 ${mobile ? 'animate-bottom-sheet-in' : 'animate-modal-in'}`}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         style={{
           transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
           opacity: dragY > 0 ? Math.max(0.4, 1 - dragY / 500) : closing ? 0 : 1,
           transition: (dragging && dragY > 0) ? 'none' : 'transform 0.2s ease-out, opacity 0.2s ease-out',
         }}
       >
-        {/* 顶部拖拽条 + 关闭按钮（移动端） */}
-        <div className="flex h-10 md:hidden items-center justify-center relative">
+        {/* 顶部拖拽条 + 关闭按钮（移动端） — 仅此处触发拖拽 */}
+        <div
+          className="flex h-10 md:hidden items-center justify-center relative touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="w-10 h-1 rounded-full bg-gray-300" />
           <button
             onClick={() => setDetailTaskId(null)}
@@ -202,7 +204,7 @@ export default function DetailModal() {
         </div>
 
         {/* 左侧：图片 */}
-        <div className="relative bg-gray-100 md:w-[480px] lg:w-[560px] flex-shrink-0 flex items-center justify-center min-h-[180px] max-h-[45vh] md:min-h-[400px] md:max-h-none">
+        <div className="relative bg-gray-100 md:w-[480px] lg:w-[560px] flex-shrink-0 flex items-center justify-center min-h-[160px] max-h-[38vh] md:min-h-[400px] md:max-h-none overflow-hidden">
           {task.status === 'completed' && currentImageUrl ? (
             <>
               <img
@@ -272,7 +274,7 @@ export default function DetailModal() {
         </div>
 
         {/* 右侧：信息 */}
-        <div className="flex-1 flex flex-col p-5 min-w-0 md:w-80 overflow-y-auto" data-scroll>
+        <div className="flex-1 flex flex-col p-5 min-w-0 min-h-0 md:w-80 overflow-y-auto overscroll-contain" data-scroll>
           {/* 桌面端关闭按钮 */}
           <div className="hidden md:flex justify-end mb-2">
             <button
