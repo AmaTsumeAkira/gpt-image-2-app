@@ -1,9 +1,12 @@
 package com.gptimage.app;
 
+import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    public MainActivity() {
-        addPlugin(GallerySaverPlugin.class);
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(GallerySaverPlugin.class);
+        super.onCreate(savedInstanceState);
     }
 }
