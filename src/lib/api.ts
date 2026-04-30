@@ -381,9 +381,11 @@ export async function submitGenerationSync(
   const isDmfox = settings.baseUrl.includes('dm-fox.rjj.cc')
   const timeoutMs = (settings.timeout || 300) * 1000
 
-  // DM-Fox 无 CORS 头，开发环境走 Vite proxy；其他供应商直连
+  // Capacitor 环境下没有 Vite proxy，需要直连
+  const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
+  // DM-Fox 无 CORS 头，开发环境走 Vite proxy；Capacitor/其他供应商直连
   const syncUrl = (endpoint: string) =>
-    isDmfox
+    isDmfox && !isCapacitor
       ? `/codex/v1/${endpoint}`
       : `${normalizeBaseUrl(settings.baseUrl)}/v1/${endpoint}`
 
