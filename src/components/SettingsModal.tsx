@@ -359,13 +359,16 @@ export default function SettingsModal() {
               <button
                 onClick={async () => {
                   showToast('正在检查更新...', 'info')
-                  const result = await checkForUpdate()
-                  if (result?.hasUpdate) {
-                    showToast(`发现新版本 v${result.latestVersion}，请返回首页更新`, 'success')
-                  } else if (result) {
-                    showToast('已是最新版本', 'success')
-                  } else {
-                    showToast('检查更新失败', 'error')
+                  try {
+                    const result = await checkForUpdate()
+                    if (result.hasUpdate) {
+                      showToast(`发现新版本 v${result.latestVersion}，请返回首页更新`, 'success')
+                    } else {
+                      showToast('已是最新版本', 'success')
+                    }
+                  } catch (err) {
+                    console.warn('[checkUpdate]', err)
+                    showToast(`检查失败: ${err instanceof Error ? err.message : '网络错误'}`, 'error')
                   }
                 }}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"

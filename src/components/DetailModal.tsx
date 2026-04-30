@@ -3,7 +3,7 @@ import { useStore, reuseConfig, removeTask, upscaleImage, retryTask } from '../s
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { isNative } from '../lib/platform'
-import { downloadImage, hapticImpact } from '../lib/native'
+import { downloadImage, hapticImpact, hapticNotification } from '../lib/native'
 
 export default function DetailModal() {
   const tasks = useStore((s) => s.tasks)
@@ -147,7 +147,12 @@ export default function DetailModal() {
     const filename = `gpt-image-2-${task.id.slice(-8)}-${index + 1}`
     if (isNative()) {
       const ok = await downloadImage(url, filename)
-      if (!ok) showToast('下载失败', 'error')
+      if (ok) {
+        showToast('已保存到相册', 'success')
+        hapticNotification('success')
+      } else {
+        showToast('下载失败', 'error')
+      }
       return
     }
     try {
@@ -158,6 +163,7 @@ export default function DetailModal() {
       a.download = `${filename}.${blob.type.split('/')[1] || 'png'}`
       a.click()
       URL.revokeObjectURL(a.href)
+      showToast('下载已开始', 'success')
     } catch {
       showToast('下载失败', 'error')
     }

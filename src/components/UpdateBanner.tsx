@@ -14,6 +14,8 @@ export default function UpdateBanner() {
     if (!isNative()) return
     checkForUpdate().then((result) => {
       if (result?.hasUpdate) setInfo(result)
+    }).catch((err) => {
+      console.warn('[UpdateBanner] check failed:', err)
     })
   }, [])
 
