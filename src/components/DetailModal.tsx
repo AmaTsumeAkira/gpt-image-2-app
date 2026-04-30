@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useStore, reuseConfig, removeTask, upscaleImage } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { isNative } from '../lib/platform'
 
 export default function DetailModal() {
   const tasks = useStore((s) => s.tasks)
@@ -98,15 +99,18 @@ export default function DetailModal() {
     setDetailTaskId(null)
   }
 
+  const mobile = typeof window !== 'undefined' && (isNative() || window.innerWidth < 768)
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDetailTaskId(null)}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setDetailTaskId(null)}>
       <div className="absolute inset-0 bg-black/20 backdrop-blur-md animate-overlay-in" />
       <div
-        className="relative bg-white/90 backdrop-blur-xl border border-white/50 rounded-3xl shadow-[0_8px_40px_rgb(0,0,0,0.12)] max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row z-10 ring-1 ring-black/5 animate-modal-in"
+        className={`relative bg-white/90 backdrop-blur-xl border border-white/50 sm:rounded-3xl rounded-t-3xl shadow-[0_8px_40px_rgb(0,0,0,0.12)] max-w-4xl w-full sm:max-h-[90vh] max-h-[92vh] overflow-hidden flex flex-col md:flex-row z-10 ring-1 ring-black/5 ${mobile ? 'animate-bottom-sheet-in' : 'animate-modal-in'}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 顶部关闭按钮（移动端） */}
-        <div className="flex h-14 items-center justify-end px-4 md:hidden">
+        {/* 顶部拖拽条 + 关闭按钮（移动端） */}
+        <div className="flex h-10 md:hidden items-center justify-center relative">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
           <button
             onClick={() => setDetailTaskId(null)}
             className="p-1 rounded-full hover:bg-gray-100 transition text-gray-400"
@@ -340,7 +344,7 @@ export default function DetailModal() {
                     />
                     <button
                       onClick={() => handleDownload(url, idx)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-blue-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      className="absolute -top-2 -right-2 w-6 h-6 sm:w-5 sm:h-5 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-blue-500 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
                       title="下载"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,7 +358,7 @@ export default function DetailModal() {
           )}
 
           {/* 操作按钮 */}
-          <div className="flex gap-2 mt-auto border-t border-gray-100 pt-4">
+          <div className="flex gap-2 mt-auto border-t border-gray-100 pt-4" style={{ paddingBottom: mobile ? 'var(--safe-bottom)' : '0' }}>
             {task.status === 'completed' && outputUrls.length > 0 && (
               <button
                 onClick={handleUpscale}

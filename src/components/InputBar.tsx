@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useStore, submitTask, addImageFromFile } from '../store'
+import { isNative } from '../lib/platform'
 import ParamPanel from './ParamPanel'
 
 /** 通用悬浮气泡提示 */
@@ -53,6 +54,33 @@ export default function InputBar() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     await handleFilesRef.current(e.target.files || [])
     e.target.value = ''
+  }
+
+  // Capacitor 原生相机/相册选择
+  const handleNativeCamera = async () => {
+    if (atImageLimit) return
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera')
+      const image = await Camera.getPhoto({
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Prompt,
+        promptLabelHeader: '添加参考图',
+        promptLabelPhoto: '从相册选择',
+        promptLabelPicture: '拍照',
+        quality: 90,
+      })
+      if (image.dataUrl) {
+        // 将 dataUrl 转为 File
+        const resp = await fetch(image.dataUrl)
+        const blob = await resp.blob()
+        const file = new File([blob], `photo-${Date.now()}.${image.format || 'jpeg'}`, { type: blob.type })
+        await addImageFromFile(file)
+      }
+    } catch (err: any) {
+      if (err?.message !== 'User cancelled photos app') {
+        useStore.getState().showToast(`图片添加失败：${err?.message || err}`, 'error')
+      }
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -156,7 +184,7 @@ export default function InputBar() {
         </div>
       )}
 
-      <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-3 sm:px-4 transition-all duration-300">
+      <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-3 sm:px-4 transition-all duration-300" style={{ bottom: `calc(1rem + var(--safe-bottom))` }}>
         <div className="bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 ring-1 ring-black/5">
           <div className="flex items-end gap-3">
             {/* 输入框 */}
@@ -166,7 +194,7 @@ export default function InputBar() {
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
-              placeholder="描述你想生成的图片... (Ctrl+Enter 快速生成)"
+              placeholder="描述你想生成的图片..."
               className="flex-1 px-4 py-3 rounded-2xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none leading-relaxed resize-none shadow-sm transition-[border-color,box-shadow] duration-200"
             />
 
@@ -193,7 +221,11 @@ export default function InputBar() {
               >
                 <ButtonTooltip visible={atImageLimit && attachHover} text="已达上限 16 张" />
                 <button
-                  onClick={() => !atImageLimit && fileInputRef.current?.click()}
+                  onClick={() => {
+                    if (atImageLimit) return
+                    if (isNative()) handleNativeCamera()
+                    else fileInputRef.current?.click()
+                  }}
                   className={`p-2 rounded-xl transition-all shadow-sm ${
                     atImageLimit
                       ? 'bg-gray-200 text-gray-300 cursor-not-allowed'
@@ -216,7 +248,7 @@ export default function InputBar() {
                 <button
                   onClick={() => (settings.apiKey ? submitTask() : setShowSettings(true))}
                   disabled={settings.apiKey ? !canSubmit : false}
-                  className={`p-2 rounded-xl transition-all shadow-sm hover:shadow ${
+                  className={`px-3 sm:px-2 py-2 rounded-xl transition-all shadow-sm hover:shadow flex items-center gap-1 ${
                     !settings.apiKey
                       ? 'bg-gray-300 text-white cursor-pointer'
                       : 'bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -226,6 +258,8 @@ export default function InputBar() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
+                  <span className="text-xs font-medium hidden sm:inline">生成</span>
+                  <span className="text-xs font-medium sm:hidden">生成</span>
                 </button>
               </div>
             </div>

@@ -192,7 +192,7 @@ export default function TaskGrid() {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {filteredTasks.map((task) => (
           <TaskCard
             key={task.id}
@@ -208,7 +208,7 @@ export default function TaskGrid() {
 
       {/* 浮动操作工具栏 */}
       {hasSelection && (
-        <div className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-30 animate-slide-up">
+        <div className="fixed left-1/2 -translate-x-1/2 z-30 animate-slide-up" style={{ bottom: 'calc(6rem + var(--safe-bottom))' }}>
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.1)] ring-1 ring-black/5">
             {/* 全选 / 取消 */}
             <button

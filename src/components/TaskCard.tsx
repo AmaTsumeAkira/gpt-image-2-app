@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import type { TaskRecord } from '../types'
 import { useStore, getCachedRemoteUrl, getCacheVersion, getThumbnail, moveTasksToFolder } from '../store'
+import { useSwipe } from '../hooks/useSwipe'
 
 interface Props {
   task: TaskRecord
@@ -19,6 +20,11 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const folderPickerRef = useRef<HTMLDivElement>(null)
   const folders = useStore((s) => s.folders)
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: onDelete,
+    onSwipeRight: onReuse,
+  })
 
   // 点击外部关闭文件夹选择器
   useEffect(() => {
@@ -102,7 +108,8 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
         e.dataTransfer.setData('text/task-id', task.id)
         e.dataTransfer.effectAllowed = 'move'
       }}
-      className={`group bg-white rounded-xl border overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg ${selected ? 'ring-2 ring-blue-400 border-blue-300' : statusColors[task.status]}`}
+      {...swipeHandlers}
+      className={`group bg-white rounded-xl border overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98] ${selected ? 'ring-2 ring-blue-400 border-blue-300' : statusColors[task.status]}`}
       style={{ contentVisibility: 'auto' as any, containIntrinsicSize: '10rem' as any }}
       onClick={(e) => {
         if (e.ctrlKey || e.metaKey) {
@@ -222,7 +229,7 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
                 e.stopPropagation()
                 onReuse()
               }}
-              className="flex-1 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors flex items-center justify-center"
+              className="flex-1 py-2 sm:py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors flex items-center justify-center min-h-[44px]"
               title="复用配置"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,7 +241,7 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
                 e.stopPropagation()
                 onDelete()
               }}
-              className="flex-1 py-1 rounded-lg bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center"
+              className="flex-1 py-2 sm:py-1 rounded-lg bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center min-h-[44px]"
               title="删除"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,7 +255,7 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
                   e.stopPropagation()
                   setShowFolderPicker((v) => !v)
                 }}
-                className="w-full py-1 rounded-lg bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors flex items-center justify-center"
+                className="w-full py-2 sm:py-1 rounded-lg bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors flex items-center justify-center min-h-[44px]"
                 title="移动到文件夹"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,7 +289,7 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); onToggleSelect() }}
-              className={`flex-1 py-1 rounded-lg transition-colors flex items-center justify-center ${
+              className={`flex-1 py-2 sm:py-1 rounded-lg transition-colors flex items-center justify-center min-h-[44px] ${
                 selected
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500'

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { AppSettings, TaskParams, InputImage, TaskRecord, PhotoLibraryImage, Provider, Folder } from './types'
 import { DEFAULT_SETTINGS, DEFAULT_PARAMS, PROVIDER_CONFIG } from './types'
 import { submitGeneration, submitGenerationSync, queryTask, batchQueryTasks, uploadImage, fetchImageAsDataUrl, compressImage } from './lib/api'
+import { hapticImpact, hapticNotification } from './lib/native'
 import { normalizeImageSize } from './lib/size'
 import { saveTasks, loadTasks, clearTasks, migrateFromLocalStorage, saveCacheMap, loadCacheMap } from './lib/imageStore'
 import { compositeImages } from './lib/composite'
@@ -532,6 +533,9 @@ export const useStore = create<AppState>()(
       toast: null,
       showToast: (message, type = 'info', action) => {
         set({ toast: { message, type, action } })
+        // 触觉反馈
+        if (type === 'error') hapticNotification('error')
+        else if (type === 'success') hapticImpact('light')
         setTimeout(() => {
           set((s) => (s.toast?.message === message ? { toast: null } : s))
         }, action ? 5000 : 3000)
@@ -684,6 +688,7 @@ export function clearExpiredPhotos() {
 export async function submitTask() {
   const { settings, prompt, inputImages, params, tasks, setTasks, showToast } =
     useStore.getState()
+  hapticImpact('medium')
 
   if (!settings.apiKey) {
     showToast('请先在设置中配置 API Key', 'error')

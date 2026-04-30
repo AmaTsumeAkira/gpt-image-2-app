@@ -156,7 +156,7 @@ export default function FolderBar() {
           </span>
           <button
             onClick={(e) => { e.stopPropagation(); handleDelete(f) }}
-            className={`p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/10 transition-opacity ${
+            className={`p-1 sm:p-0.5 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-black/10 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center ${
               activeFolderId === f.id ? 'text-blue-200' : 'text-gray-400'
             }`}
             title="删除文件夹"

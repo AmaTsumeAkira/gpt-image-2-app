@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useStore, submitTask, addImageFromFile } from '../store'
 import { DEFAULT_PARAMS } from '../types'
+import { isNative } from '../lib/platform'
 import Select from './Select'
 
 const SIZE_PATTERN = /^\s*(\d+)\s*[xX×]\s*(\d+)\s*$/
@@ -176,6 +177,32 @@ export default function ParamPanel() {
     e.target.value = ''
   }
 
+  // Capacitor 原生相机/相册
+  const handleNativeCamera = async () => {
+    if (atImageLimit) return
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera')
+      const image = await Camera.getPhoto({
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Prompt,
+        promptLabelHeader: '添加参考图',
+        promptLabelPhoto: '从相册选择',
+        promptLabelPicture: '拍照',
+        quality: 90,
+      })
+      if (image.dataUrl) {
+        const resp = await fetch(image.dataUrl)
+        const blob = await resp.blob()
+        const file = new File([blob], `photo-${Date.now()}.${image.format || 'jpeg'}`, { type: blob.type })
+        await addImageFromFile(file)
+      }
+    } catch (err: any) {
+      if (err?.message !== 'User cancelled photos app') {
+        showToast(`图片添加失败：${err?.message || err}`, 'error')
+      }
+    }
+  }
+
   const handleMaskUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -220,7 +247,10 @@ export default function ParamPanel() {
           <h4 className="text-xs font-medium text-gray-500">参考图</h4>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (isNative()) handleNativeCamera()
+                else fileInputRef.current?.click()
+              }}
               disabled={atImageLimit}
               className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-30"
               title="上传参考图"
@@ -252,7 +282,7 @@ export default function ParamPanel() {
                 />
                 <button
                   onClick={() => removeInputImage(idx)}
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600"
+                  className="absolute -top-2 -right-2 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600"
                 >
                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -280,7 +310,10 @@ export default function ParamPanel() {
           </div>
         ) : (
           <div
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (isNative()) handleNativeCamera()
+              else fileInputRef.current?.click()
+            }}
             className="border border-dashed border-gray-200 rounded-lg py-3 flex flex-col items-center gap-1 cursor-pointer hover:border-gray-300 hover:bg-gray-50/50 transition-colors"
           >
             <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +361,7 @@ export default function ParamPanel() {
             <img src={maskImage.dataUrl} className="w-16 h-16 rounded-lg object-cover border border-purple-300 shadow-sm" alt="遮罩" />
             <button
               onClick={clearMaskImage}
-              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600"
+              className="absolute -top-2 -right-2 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600"
             >
               <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />

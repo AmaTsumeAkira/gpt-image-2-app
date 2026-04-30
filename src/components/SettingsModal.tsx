@@ -3,6 +3,7 @@ import { normalizeBaseUrl, queryBalance } from '../lib/api'
 import { useStore, clearAllData } from '../store'
 import { DEFAULT_SETTINGS, type AppSettings } from '../types'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { isNative } from '../lib/platform'
 
 export default function SettingsModal() {
   const showSettings = useStore((s) => s.showSettings)
@@ -108,10 +109,17 @@ export default function SettingsModal() {
     })
   }
 
+  const mobile = typeof window !== 'undefined' && (isNative() || window.innerWidth < 768)
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-overlay-in" onClick={handleClose} />
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/50 bg-white/95 p-5 shadow-2xl ring-1 ring-black/5 animate-modal-in overflow-y-auto max-h-[85vh]">
+      <div className={`relative z-10 w-full max-w-md sm:rounded-3xl rounded-t-3xl border border-white/50 bg-white/95 p-5 shadow-2xl ring-1 ring-black/5 ${mobile ? 'animate-bottom-sheet-in' : 'animate-modal-in'} overflow-y-auto sm:max-h-[85vh] max-h-[92vh]`} style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}>
+        {/* 拖拽条（移动端） */}
+        <div className="flex justify-center mb-3 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
         <div className="mb-5 flex items-center justify-between gap-4">
           <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
