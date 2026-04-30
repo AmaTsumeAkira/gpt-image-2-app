@@ -22,6 +22,7 @@ import MaskHelpModal from './components/MaskHelpModal'
 import MaskEditor from './components/MaskEditor'
 import ConfirmDialog from './components/ConfirmDialog'
 import Toast from './components/Toast'
+import BottomNav from './components/BottomNav'
 
 export default function App() {
   const setSettings = useStore((s) => s.setSettings)
@@ -75,6 +76,23 @@ export default function App() {
     initStore().catch(() => {})
   }, [setSettings])
 
+  // 全局键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 忽略输入框内的按键
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+
+      if (e.key === '/') {
+        e.preventDefault()
+        const searchInput = document.querySelector('[data-search-input]') as HTMLInputElement
+        searchInput?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <>
       <Header />
@@ -99,7 +117,7 @@ export default function App() {
         </div>
       )}
       <div className="px-4 sm:px-6 pb-48"
-        style={{ paddingBottom: 'calc(12rem + var(--safe-bottom))' }}
+        style={{ paddingBottom: isNative() ? 'calc(16rem + var(--safe-bottom))' : 'calc(12rem + var(--safe-bottom))' }}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         <div className="flex gap-4 sm:gap-6 mt-4">
           {/* 左侧参数面板（桌面端显示） */}
@@ -128,6 +146,7 @@ export default function App() {
       <DbManageModal />
       <ConfirmDialog />
       <Toast />
+      {isNative() && <BottomNav />}
     </>
   )
 }

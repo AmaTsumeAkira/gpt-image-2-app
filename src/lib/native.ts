@@ -70,3 +70,41 @@ export function onNetworkChange(callback: (connected: boolean) => void): () => v
 
   return () => cleanup?.()
 }
+
+/** 原生下载图片到手机（通过系统分享保存到相册） */
+export async function downloadImage(url: string, filename: string): Promise<boolean> {
+  if (!isNative()) return false
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem')
+    const { Share } = await import('@capacitor/share')
+
+    const resp = await fetch(url)
+    const blob = await resp.blob()
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result as string
+        resolve(result.split(',')[1])
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+
+    const ext = blob.type.split('/')[1] || 'png'
+    const path = `download_${Date.now()}.${ext}`
+    const written = await Filesystem.writeFile({
+      path,
+      data: base64,
+      directory: Directory.Cache,
+    })
+
+    await Share.share({
+      title: filename,
+      files: [written.uri],
+    })
+
+    return true
+  } catch {
+    return false
+  }
+}

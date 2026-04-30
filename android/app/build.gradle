@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+// 自动递增 versionCode：使用 git commit 数量
+def getVersionCode = { ->
+    def code = 100 // 基础版本号
+    try {
+        def process = "git rev-list --count HEAD".execute([], project.rootDir)
+        process.waitFor()
+        code = code + Integer.parseInt(process.text.trim())
+    } catch (Exception e) {
+        logger.warn("Could not get git commit count, using default versionCode")
+    }
+    return code
+}
+
 android {
     namespace = "com.gptimage.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +20,8 @@ android {
         applicationId "com.gptimage.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode getVersionCode()
+        versionName "1.0.${getVersionCode()}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,9 +29,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file("gptimage.keystore")
+            storePassword "gptimage123"
+            keyAlias "gptimage"
+            keyPassword "gptimage123"
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.release
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

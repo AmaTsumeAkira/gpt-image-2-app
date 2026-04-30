@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { isNative } from '../lib/platform'
+import { downloadImage } from '../lib/native'
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 10
@@ -20,6 +22,17 @@ export default function Lightbox() {
   const panStartRef = useRef({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
   const lastWheelTimeRef = useRef(0)
+
+  // 触摸手势 refs
+  const touchStartRef = useRef<{ x: number; y: number; time: number; dist: number }[]>([])
+  const pinchStartDistRef = useRef(0)
+  const pinchStartScaleRef = useRef(1)
+  const swipeStartXRef = useRef(0)
+  const swipeDeltaRef = useRef(0)
+  const [swipeDelta, setSwipeDelta] = useState(0)
+  const lastTapTimeRef = useRef(0)
+  const isTouchPanningRef = useRef(false)
+  const touchPanStartRef = useRef({ x: 0, y: 0 })
 
   useCloseOnEscape(Boolean(lightboxImageUrl), () => {
     setLightboxImageUrl(null)
@@ -52,6 +65,33 @@ export default function Lightbox() {
     window.addEventListener('wheel', handler, { passive: false })
     return () => window.removeEventListener('wheel', handler)
   }, [lightboxImageUrl])
+
+  // 键盘导航
+  useEffect(() => {
+    if (!lightboxImageUrl) return
+    const handler = (e: KeyboardEvent) => {
+      const zoomed = scale > 1.05
+      if (e.key === 'ArrowLeft' && lightboxImageList.length > 1 && !zoomed) {
+        e.preventDefault()
+        const idx = lightboxImageList.indexOf(lightboxImageUrl)
+        const prev = (idx - 1 + lightboxImageList.length) % lightboxImageList.length
+        setLightboxImageUrl(lightboxImageList[prev], lightboxImageList)
+      } else if (e.key === 'ArrowRight' && lightboxImageList.length > 1 && !zoomed) {
+        e.preventDefault()
+        const idx = lightboxImageList.indexOf(lightboxImageUrl)
+        const next = (idx + 1) % lightboxImageList.length
+        setLightboxImageUrl(lightboxImageList[next], lightboxImageList)
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault()
+        setScale((prev) => Math.round(Math.min(MAX_ZOOM, prev + ZOOM_STEP) * 100) / 100)
+      } else if (e.key === '-') {
+        e.preventDefault()
+        setScale((prev) => Math.round(Math.max(MIN_ZOOM, prev - ZOOM_STEP) * 100) / 100)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxImageUrl, lightboxImageList, scale])
 
   // 鼠标拖拽平移（任意缩放比下均可拖拽）
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -86,6 +126,111 @@ export default function Lightbox() {
       window.removeEventListener('mouseup', onUp)
     }
   }, [isPanning])
+
+  // 触摸手势：滑动切换、双指缩放、双击缩放、缩放后拖动
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touches = Array.from(e.touches).map((t) => ({ x: t.clientX, y: t.clientY, time: Date.now(), dist: 0 }))
+    touchStartRef.current = touches
+
+    if (touches.length === 1) {
+      swipeStartXRef.current = touches[0].x
+      swipeDeltaRef.current = 0
+      // 缩放状态下的单指拖动
+      if (scale > 1.05) {
+        isTouchPanningRef.current = true
+        touchPanStartRef.current = {
+          x: touches[0].x - panRef.current.x,
+          y: touches[0].y - panRef.current.y,
+        }
+      }
+    }
+
+    if (touches.length === 2) {
+      const dx = touches[1].x - touches[0].x
+      const dy = touches[1].y - touches[0].y
+      pinchStartDistRef.current = Math.hypot(dx, dy)
+      pinchStartScaleRef.current = scale
+      isTouchPanningRef.current = false
+    }
+  }, [scale])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touches = Array.from(e.touches)
+    if (touches.length === 2) {
+      // 双指缩放
+      e.preventDefault()
+      const dx = touches[1].clientX - touches[0].clientX
+      const dy = touches[1].clientY - touches[0].clientY
+      const dist = Math.hypot(dx, dy)
+      if (pinchStartDistRef.current > 0) {
+        const ratio = dist / pinchStartDistRef.current
+        const newScale = Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartScaleRef.current * ratio)) * 100) / 100
+        setScale(newScale)
+      }
+    } else if (touches.length === 1) {
+      if (isTouchPanningRef.current && scale > 1.05) {
+        // 缩放状态下的单指拖动
+        e.preventDefault()
+        const next = {
+          x: touches[0].clientX - touchPanStartRef.current.x,
+          y: touches[0].clientY - touchPanStartRef.current.y,
+        }
+        panRef.current = next
+        setRenderPan(next)
+      } else if (lightboxImageList.length > 1 && scale <= 1.05) {
+        // 滑动切换预览
+        const dx = touches[0].clientX - swipeStartXRef.current
+        swipeDeltaRef.current = dx
+        setSwipeDelta(dx)
+      }
+    }
+  }, [scale, lightboxImageList.length])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const startTouches = touchStartRef.current
+    const elapsed = Date.now() - (startTouches[0]?.time || 0)
+
+    // 双指缩放结束
+    if (startTouches.length >= 2) {
+      pinchStartDistRef.current = 0
+      isTouchPanningRef.current = false
+      setSwipeDelta(0)
+      return
+    }
+
+    isTouchPanningRef.current = false
+
+    // 双击检测
+    if (startTouches.length === 1 && elapsed < 300) {
+      const now = Date.now()
+      if (now - lastTapTimeRef.current < 300) {
+        // 双击 → 切换缩放
+        lastTapTimeRef.current = 0
+        if (scale > 1.1) {
+          setScale(1)
+          panRef.current = { x: 0, y: 0 }
+          setRenderPan({ x: 0, y: 0 })
+        } else {
+          setScale(2.5)
+        }
+        setSwipeDelta(0)
+        return
+      }
+      lastTapTimeRef.current = now
+    }
+
+    // 滑动切换
+    if (lightboxImageUrl && lightboxImageList.length > 1 && scale <= 1.05 && Math.abs(swipeDeltaRef.current) > 50) {
+      const idx = lightboxImageList.indexOf(lightboxImageUrl)
+      if (swipeDeltaRef.current < 0 && idx < lightboxImageList.length - 1) {
+        goTo(idx + 1)
+      } else if (swipeDeltaRef.current > 0 && idx > 0) {
+        goTo(idx - 1)
+      }
+    }
+    setSwipeDelta(0)
+    swipeDeltaRef.current = 0
+  }, [scale, lightboxImageList, lightboxImageUrl])
 
   // 双击：缩放 1x → 2.5x，再双击回到 1x
   const handleDoubleClick = useCallback(
@@ -169,6 +314,12 @@ export default function Lightbox() {
         <button
           onClick={async (e) => {
             e.stopPropagation()
+            if (isNative()) {
+              const ok = await downloadImage(lightboxImageUrl, 'gpt-image')
+              if (ok) showToast('已分享图片', 'success')
+              else showToast('下载失败', 'error')
+              return
+            }
             try {
               const resp = await fetch(lightboxImageUrl)
               const blob = await resp.blob()
@@ -215,6 +366,9 @@ export default function Lightbox() {
         onClick={(e) => e.stopPropagation()}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         style={{ width: '100%', height: '100%' }}
       >
         <img
@@ -223,10 +377,10 @@ export default function Lightbox() {
             loaded ? 'opacity-100' : 'opacity-0'
           }`}
           style={{
-            transform: `translate(${renderPan.x}px, ${renderPan.y}px) scale(${scale})`,
+            transform: `translate(${renderPan.x + (scale <= 1.05 ? swipeDelta : 0)}px, ${renderPan.y}px) scale(${scale})`,
             maxWidth: isZoomed ? 'none' : '90vw',
             maxHeight: isZoomed ? 'none' : '90vh',
-            transition: isPanning ? 'none' : 'transform 0.15s ease-out',
+            transition: (isPanning || swipeDelta !== 0) ? 'none' : 'transform 0.15s ease-out',
             transformOrigin: 'center center',
           }}
           onLoad={() => setLoaded(true)}
@@ -259,7 +413,7 @@ export default function Lightbox() {
         )}
         {isZoomed && (
           <span className="bg-black/50 text-white/60 text-[10px] px-3 py-1.5 rounded-full backdrop-blur-sm">
-            拖拽平移 · 滚轮缩放 · 双击重置
+            {isNative() ? '拖拽平移 · 双指缩放 · 双击重置' : '拖拽平移 · 滚轮缩放 · 双击重置'}
           </span>
         )}
       </div>

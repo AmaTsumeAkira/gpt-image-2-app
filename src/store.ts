@@ -928,6 +928,109 @@ async function executeTask(taskId: string) {
   }
 }
 
+/** 重试失败的任务 */
+export async function retryTask(taskId: string) {
+  const { tasks, settings, showToast } = useStore.getState()
+  const task = tasks.find((t) => t.id === taskId)
+  if (!task || task.status !== 'failed') return
+
+  hapticImpact('medium')
+
+  // 将任务状态重置为 in_progress
+  updateTaskInStore(taskId, {
+    status: 'in_progress',
+    error: null,
+    progress: 0,
+    createdAt: Date.now(),
+    finishedAt: null,
+    elapsed: null,
+  })
+
+  const cfg = PROVIDER_CONFIG[settings.provider]
+
+  if (cfg && !cfg.isAsync) {
+    // DM-Fox 同步模式
+    try {
+      const inputImages = useStore.getState().inputImages
+      let inputDataUrls: string[] | undefined
+      if (task.inputImageIds?.length) {
+        inputDataUrls = inputImages
+          .filter((img) => task.inputImageIds!.includes(img.id))
+          .map((img) => img.dataUrl)
+      }
+      const result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls)
+      updateTaskInStore(taskId, {
+        status: 'completed',
+        outputUrls: result.images,
+        revisedPrompt: result.revisedPrompt,
+        usage: result.usage,
+        progress: 100,
+        finishedAt: Date.now(),
+        elapsed: Date.now() - task.createdAt,
+      })
+      showToast('重试成功', 'success')
+    } catch (err) {
+      updateTaskInStore(taskId, {
+        status: 'failed',
+        error: err instanceof Error ? err.message : String(err),
+        finishedAt: Date.now(),
+        elapsed: Date.now() - task.createdAt,
+      })
+    }
+    return
+  }
+
+  // APIMart 异步模式
+  try {
+    const remoteTaskId = await submitGeneration(settings, task.prompt, task.params, [])
+    updateTaskInStore(taskId, { remoteTaskId })
+
+    // 轮询任务状态
+    const firstDelay = 15000
+    const pollInterval = 3000
+    const maxAttempts = Math.max(1, Math.ceil(((settings.timeout * 1000) - firstDelay) / pollInterval))
+    await new Promise((r) => setTimeout(r, Math.min(firstDelay, settings.timeout * 1000)))
+    let attempts = 0
+
+    while (attempts < maxAttempts) {
+      attempts++
+      const data = await queryTask(settings, remoteTaskId)
+      if (!data) continue
+
+      updateTaskInStore(taskId, { progress: data.progress ?? 0 })
+
+      if (data.status === 'completed') {
+        const imageUrls: string[] = []
+        if (data.result?.images) {
+          for (const img of data.result.images) {
+            if (img.url && img.url.length > 0) imageUrls.push(...img.url)
+          }
+        }
+        updateTaskInStore(taskId, {
+          status: 'completed',
+          outputUrls: imageUrls,
+          finishedAt: Date.now(),
+          elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
+        })
+        showToast('重试成功', 'success')
+        return
+      }
+
+      if (data.status === 'failed') throw new Error(data.fail_reason || data.error?.message || '生成失败')
+
+      await new Promise((r) => setTimeout(r, pollInterval))
+    }
+    throw new Error(`任务超时（${settings.timeout}秒）`)
+  } catch (err) {
+    updateTaskInStore(taskId, {
+      status: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+      finishedAt: Date.now(),
+      elapsed: Date.now() - task.createdAt,
+    })
+  }
+}
+
 function updateTaskInStore(taskId: string, patch: Partial<TaskRecord>) {
   const { tasks, setTasks } = useStore.getState()
   const updated = tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t))

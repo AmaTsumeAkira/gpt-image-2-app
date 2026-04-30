@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useStore, reuseConfig, removeTask, removeTasks, moveTasksToFolder } from '../store'
+import { isNative } from '../lib/platform'
+import { downloadImage } from '../lib/native'
 import TaskCard from './TaskCard'
 
 export default function TaskGrid() {
@@ -93,16 +95,22 @@ export default function TaskGrid() {
       const task = tasks.find((t) => t.id === taskId)
       if (!task?.outputUrls?.length) continue
       for (let i = 0; i < task.outputUrls.length; i++) {
-        try {
-          const resp = await fetch(task.outputUrls[i])
-          const blob = await resp.blob()
-          const a = document.createElement('a')
-          a.href = URL.createObjectURL(blob)
-          a.download = `gpt-image-2-${task.id.slice(-8)}-${i + 1}.${blob.type.split('/')[1] || 'png'}`
-          a.click()
-          URL.revokeObjectURL(a.href)
-          downloaded++
-        } catch { /* skip failed */ }
+        const filename = `gpt-image-2-${task.id.slice(-8)}-${i + 1}`
+        if (isNative()) {
+          const ok = await downloadImage(task.outputUrls[i], filename)
+          if (ok) downloaded++
+        } else {
+          try {
+            const resp = await fetch(task.outputUrls[i])
+            const blob = await resp.blob()
+            const a = document.createElement('a')
+            a.href = URL.createObjectURL(blob)
+            a.download = `${filename}.${blob.type.split('/')[1] || 'png'}`
+            a.click()
+            URL.revokeObjectURL(a.href)
+            downloaded++
+          } catch { /* skip failed */ }
+        }
       }
     }
     if (downloaded > 0) showToast(`已下载 ${downloaded} 张图片`, 'success')
@@ -192,7 +200,7 @@ export default function TaskGrid() {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {filteredTasks.map((task) => (
           <TaskCard
             key={task.id}
@@ -208,7 +216,7 @@ export default function TaskGrid() {
 
       {/* 浮动操作工具栏 */}
       {hasSelection && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-30 animate-slide-up" style={{ bottom: 'calc(6rem + var(--safe-bottom))' }}>
+        <div className="fixed left-1/2 -translate-x-1/2 z-40 animate-slide-up" style={{ bottom: isNative() ? 'calc(9rem + var(--safe-bottom))' : 'calc(7rem + var(--safe-bottom))' }}>
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.1)] ring-1 ring-black/5">
             {/* 全选 / 取消 */}
             <button

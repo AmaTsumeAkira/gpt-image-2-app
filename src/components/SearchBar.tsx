@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useStore } from '../store'
 import Select from './Select'
 
@@ -7,6 +8,32 @@ export default function SearchBar() {
   const filterStatus = useStore((s) => s.filterStatus)
   const setFilterStatus = useStore((s) => s.setFilterStatus)
   const setShowFetchModal = useStore((s) => s.setShowFetchModal)
+  const tasks = useStore((s) => s.tasks)
+  const activeFolderId = useStore((s) => s.activeFolderId)
+  const folders = useStore((s) => s.folders)
+
+  const filteredCount = useMemo(() => {
+    let sorted = [...tasks].sort((a, b) => b.createdAt - a.createdAt)
+    if (activeFolderId === '_ungrouped') {
+      const ids = new Set(folders.flatMap((f) => f.taskIds))
+      sorted = sorted.filter((t) => !ids.has(t.id))
+    } else if (activeFolderId) {
+      const folder = folders.find((f) => f.id === activeFolderId)
+      if (folder) {
+        const idSet = new Set(folder.taskIds)
+        sorted = sorted.filter((t) => idSet.has(t.id))
+      }
+    }
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return sorted.filter((t) => filterStatus === 'all' || t.status === filterStatus).length
+    return sorted.filter((t) => {
+      const matchStatus = filterStatus === 'all' || t.status === filterStatus
+      if (!matchStatus) return false
+      const prompt = (t.prompt || '').toLowerCase()
+      const paramStr = JSON.stringify(t.params).toLowerCase()
+      return prompt.includes(q) || paramStr.includes(q)
+    }).length
+  }, [tasks, searchQuery, filterStatus, activeFolderId, folders])
 
   return (
     <div className="mt-6 mb-4 flex gap-3">
@@ -38,10 +65,11 @@ export default function SearchBar() {
           />
         </svg>
         <input
+          data-search-input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           type="text"
-          placeholder="搜索提示词、参数..."
+          placeholder="搜索提示词、参数... (按 / 聚焦)"
           className="w-full pl-10 pr-8 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
         />
         {searchQuery && (
@@ -56,6 +84,9 @@ export default function SearchBar() {
           </button>
         )}
       </div>
+      <span className="flex-shrink-0 text-xs text-gray-400 tabular-nums self-center">
+        {filteredCount} 条
+      </span>
       <button
         onClick={() => setShowFetchModal(true)}
         className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1.5"

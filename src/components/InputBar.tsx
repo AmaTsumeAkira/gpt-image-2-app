@@ -31,6 +31,7 @@ export default function InputBar() {
   const [attachHover, setAttachHover] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [showMobileParams, setShowMobileParams] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const dragCounter = useRef(0)
 
   const canSubmit = (prompt.trim() || inputImages.length) && settings.apiKey
@@ -184,7 +185,7 @@ export default function InputBar() {
         </div>
       )}
 
-      <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-3 sm:px-4 transition-all duration-300" style={{ bottom: `calc(1rem + var(--safe-bottom))` }}>
+      <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-3 sm:px-4 transition-all duration-300" style={{ bottom: isNative() ? `calc(4.5rem + var(--safe-bottom))` : `calc(1rem + var(--safe-bottom))` }}>
         <div className="bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 ring-1 ring-black/5">
           <div className="flex items-end gap-3">
             {/* 输入框 */}
@@ -246,8 +247,12 @@ export default function InputBar() {
               >
                 <ButtonTooltip visible={!settings.apiKey && submitHover} text="尚未完成 API 配置，请在右上角设置中进行" />
                 <button
-                  onClick={() => (settings.apiKey ? submitTask() : setShowSettings(true))}
-                  disabled={settings.apiKey ? !canSubmit : false}
+                  onClick={async () => {
+                    if (!settings.apiKey) { setShowSettings(true); return }
+                    setSubmitting(true)
+                    try { await submitTask() } finally { setSubmitting(false) }
+                  }}
+                  disabled={settings.apiKey ? (!canSubmit || submitting) : false}
                   className={`px-3 sm:px-2 py-2 rounded-xl transition-all shadow-sm hover:shadow flex items-center gap-1 ${
                     !settings.apiKey
                       ? 'bg-gray-300 text-white cursor-pointer'
@@ -255,9 +260,16 @@ export default function InputBar() {
                   }`}
                   title={settings.apiKey ? `生成 (Ctrl+Enter) · ${settings.provider === 'dmfox' ? '同步' : '异步'}` : '请先配置 API'}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
+                  {submitting ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  )}
                   <span className="text-xs font-medium hidden sm:inline">生成</span>
                   <span className="text-xs font-medium sm:hidden">生成</span>
                 </button>

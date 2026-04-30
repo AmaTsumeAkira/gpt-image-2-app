@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useStore, reuseConfig, removeTask, upscaleImage } from '../store'
+import { useStore, reuseConfig, removeTask, upscaleImage, retryTask } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
 import { isNative } from '../lib/platform'
+import { downloadImage } from '../lib/native'
 
 export default function DetailModal() {
   const tasks = useStore((s) => s.tasks)
@@ -79,12 +80,18 @@ export default function DetailModal() {
   }
 
   const handleDownload = async (url: string, index: number) => {
+    const filename = `gpt-image-2-${task.id.slice(-8)}-${index + 1}`
+    if (isNative()) {
+      const ok = await downloadImage(url, filename)
+      if (!ok) showToast('下载失败', 'error')
+      return
+    }
     try {
       const resp = await fetch(url)
       const blob = await resp.blob()
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = `gpt-image-2-${task.id.slice(-8)}-${index + 1}.${blob.type.split('/')[1] || 'png'}`
+      a.download = `${filename}.${blob.type.split('/')[1] || 'png'}`
       a.click()
       URL.revokeObjectURL(a.href)
     } catch {
@@ -381,6 +388,18 @@ export default function DetailModal() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 下载
+              </button>
+            )}
+            {task.status === 'failed' && (
+              <button
+                onClick={() => { retryTask(task.id); setDetailTaskId(null) }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                title="重试生成"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                重试
               </button>
             )}
             <button
