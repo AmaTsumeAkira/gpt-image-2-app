@@ -724,6 +724,7 @@ export async function submitTask() {
       elapsed: null,
     }
     setTasks([task, ...tasks])
+    saveTasks([task, ...tasks].slice(0, 200)).catch(() => {})
 
     // DM-Fox 图生图：多张参考图合成一张拼图，通过 /v1/images/edits 提交
     // 遮罩图需提前检查，有遮罩时合成图必须用 PNG（alpha 通道兼容）
@@ -791,6 +792,7 @@ export async function submitTask() {
 
   const newTasks = [task, ...tasks]
   setTasks(newTasks)
+  saveTasks(newTasks.slice(0, 200)).catch(() => {})
 
   executeTask(taskId).catch((err) => {
     showToast(`任务失败：${err.message}`, 'error')
