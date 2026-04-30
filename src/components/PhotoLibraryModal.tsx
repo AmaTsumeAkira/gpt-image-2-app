@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useStore, uploadToLibrary, addLibraryImageToInput } from '../store'
 import type { PhotoLibraryImage } from '../types'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 export default function PhotoLibraryModal() {
   const showPhotoLibrary = useStore((s) => s.showPhotoLibrary)
@@ -15,6 +16,7 @@ export default function PhotoLibraryModal() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useCloseOnEscape(showPhotoLibrary, () => setShowPhotoLibrary(false))
+  useBodyScrollLock(showPhotoLibrary)
 
   if (!showPhotoLibrary) return null
 

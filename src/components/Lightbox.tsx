@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { isNative } from '../lib/platform'
-import { downloadImage } from '../lib/native'
+import { downloadImage, hapticImpact } from '../lib/native'
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 10
@@ -40,6 +41,7 @@ export default function Lightbox() {
     panRef.current = { x: 0, y: 0 }
     setRenderPan({ x: 0, y: 0 })
   })
+  useBodyScrollLock(Boolean(lightboxImageUrl))
 
   useEffect(() => {
     setLoaded(false)
@@ -206,6 +208,7 @@ export default function Lightbox() {
       if (now - lastTapTimeRef.current < 300) {
         // 双击 → 切换缩放
         lastTapTimeRef.current = 0
+        hapticImpact('medium')
         if (scale > 1.1) {
           setScale(1)
           panRef.current = { x: 0, y: 0 }
@@ -223,8 +226,10 @@ export default function Lightbox() {
     if (lightboxImageUrl && lightboxImageList.length > 1 && scale <= 1.05 && Math.abs(swipeDeltaRef.current) > 50) {
       const idx = lightboxImageList.indexOf(lightboxImageUrl)
       if (swipeDeltaRef.current < 0 && idx < lightboxImageList.length - 1) {
+        hapticImpact('light')
         goTo(idx + 1)
       } else if (swipeDeltaRef.current > 0 && idx > 0) {
+        hapticImpact('light')
         goTo(idx - 1)
       }
     }
@@ -371,6 +376,12 @@ export default function Lightbox() {
         onTouchEnd={handleTouchEnd}
         style={{ width: '100%', height: '100%' }}
       >
+        {!loaded && (
+          <svg className="absolute w-10 h-10 text-white/60 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        )}
         <img
           src={lightboxImageUrl}
           className={`select-none pointer-events-none ${

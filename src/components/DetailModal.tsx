@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useStore, reuseConfig, removeTask, upscaleImage, retryTask } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { isNative } from '../lib/platform'
-import { downloadImage } from '../lib/native'
+import { downloadImage, hapticImpact } from '../lib/native'
 
 export default function DetailModal() {
   const tasks = useStore((s) => s.tasks)
@@ -14,17 +15,80 @@ export default function DetailModal() {
 
   const [imageIndex, setImageIndex] = useState(0)
 
+  // 向下拖拽关闭
+  const [dragY, setDragY] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const startYRef = useRef(0)
+  const dragLockedRef = useRef(false)
+  const DRAG_THRESHOLD = 120
+
   const task = useMemo(
     () => tasks.find((t) => t.id === detailTaskId) ?? null,
     [tasks, detailTaskId],
   )
 
   useCloseOnEscape(Boolean(task), () => setDetailTaskId(null))
+  useBodyScrollLock(Boolean(detailTaskId))
 
   // Reset index when task changes
   useEffect(() => {
     setImageIndex(0)
   }, [detailTaskId])
+
+  const handleClose = useCallback(() => {
+    setClosing(true)
+    setTimeout(() => {
+      setDetailTaskId(null)
+      setDragY(0)
+      setClosing(false)
+      setDragging(false)
+    }, 200)
+  }, [setDetailTaskId])
+
+  // 拖拽手势：只在内容滚动到顶部时激活
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    startYRef.current = e.touches[0].clientY
+    dragLockedRef.current = false
+    setDragging(false)
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dy = e.touches[0].clientY - startYRef.current
+
+    if (!dragLockedRef.current) {
+      // 需要向下拖动超过 8px 才锁定方向
+      if (dy < 8) {
+        if (dy < -5) dragLockedRef.current = true // 向上滑 → 不拦截
+        return
+      }
+      // 检查内容是否在顶部（允许 5px 误差）
+      const scrollable = (e.currentTarget as HTMLElement).querySelector('[data-scroll]')
+      if (scrollable && scrollable.scrollTop > 5) {
+        dragLockedRef.current = true
+        return
+      }
+      dragLockedRef.current = true
+      setDragging(true)
+    }
+
+    if (dragging || dy > 8) {
+      // 只允许向下拖动，带阻尼
+      const dampened = Math.max(0, dy * 0.5)
+      setDragY(dampened)
+    }
+  }, [dragging])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!dragging) return
+    if (dragY > DRAG_THRESHOLD) {
+      hapticImpact('light')
+      handleClose()
+    } else {
+      setDragY(0)
+      setDragging(false)
+    }
+  }, [dragging, dragY, handleClose])
 
   if (!task) return null
 
@@ -114,13 +178,21 @@ export default function DetailModal() {
       <div
         className={`relative bg-white/90 backdrop-blur-xl border border-white/50 sm:rounded-3xl rounded-t-3xl shadow-[0_8px_40px_rgb(0,0,0,0.12)] max-w-4xl w-full sm:max-h-[90vh] max-h-[92vh] overflow-hidden flex flex-col md:flex-row z-10 ring-1 ring-black/5 ${mobile ? 'animate-bottom-sheet-in' : 'animate-modal-in'}`}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+          opacity: dragY > 0 ? Math.max(0.4, 1 - dragY / 500) : closing ? 0 : 1,
+          transition: (dragging && dragY > 0) ? 'none' : 'transform 0.2s ease-out, opacity 0.2s ease-out',
+        }}
       >
         {/* 顶部拖拽条 + 关闭按钮（移动端） */}
         <div className="flex h-10 md:hidden items-center justify-center relative">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
           <button
             onClick={() => setDetailTaskId(null)}
-            className="p-1 rounded-full hover:bg-gray-100 transition text-gray-400"
+            className="absolute right-2 p-1 rounded-full hover:bg-gray-100 transition text-gray-400"
             aria-label="关闭"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,7 +202,7 @@ export default function DetailModal() {
         </div>
 
         {/* 左侧：图片 */}
-        <div className="relative bg-gray-100 md:w-[480px] lg:w-[560px] flex-shrink-0 flex items-center justify-center min-h-[300px] md:min-h-[400px]">
+        <div className="relative bg-gray-100 md:w-[480px] lg:w-[560px] flex-shrink-0 flex items-center justify-center min-h-[180px] max-h-[45vh] md:min-h-[400px] md:max-h-none">
           {task.status === 'completed' && currentImageUrl ? (
             <>
               <img
@@ -200,7 +272,7 @@ export default function DetailModal() {
         </div>
 
         {/* 右侧：信息 */}
-        <div className="flex-1 flex flex-col p-5 min-w-0 md:w-80 overflow-y-auto">
+        <div className="flex-1 flex flex-col p-5 min-w-0 md:w-80 overflow-y-auto" data-scroll>
           {/* 桌面端关闭按钮 */}
           <div className="hidden md:flex justify-end mb-2">
             <button

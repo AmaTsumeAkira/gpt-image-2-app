@@ -1,5 +1,6 @@
 import { useStore } from '../store'
 import { hapticImpact } from '../lib/native'
+import { isNative } from '../lib/platform'
 
 const tabs = [
   { id: 'tasks', label: '任务', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -13,10 +14,17 @@ export default function BottomNav() {
   const showSettings = useStore((s) => s.showSettings)
   const showStats = useStore((s) => s.showStats)
   const showPhotoLibrary = useStore((s) => s.showPhotoLibrary)
+  const detailTaskId = useStore((s) => s.detailTaskId)
   const setShowSettings = useStore((s) => s.setShowSettings)
   const setShowStats = useStore((s) => s.setShowStats)
   const setShowPhotoLibrary = useStore((s) => s.setShowPhotoLibrary)
   const setDetailTaskId = useStore((s) => s.setDetailTaskId)
+
+  // DetailModal 打开时隐藏 BottomNav，避免 z-index 层级冲突
+  if (detailTaskId) return null
+
+  // Android 端隐藏底边栏
+  if (isNative()) return null
 
   // 从 store 派生当前活跃 Tab
   const activeTab = showSettings ? 'settings' : showStats ? 'stats' : showPhotoLibrary ? 'library' : 'tasks'

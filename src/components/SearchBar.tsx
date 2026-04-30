@@ -36,8 +36,8 @@ export default function SearchBar() {
   }, [tasks, searchQuery, filterStatus, activeFolderId, folders])
 
   return (
-    <div className="mt-6 mb-4 flex gap-3">
-      <div className="relative w-36 flex-shrink-0 z-20">
+    <div className="mt-6 mb-4 flex gap-2 sm:gap-3">
+      <div className="relative w-28 sm:w-36 flex-shrink-0 z-20">
         <Select
           value={filterStatus}
           onChange={(val) => setFilterStatus(val as any)}
@@ -47,7 +47,7 @@ export default function SearchBar() {
             { label: '进行中', value: 'in_progress' },
             { label: '失败', value: 'failed' },
           ]}
-          className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
         />
       </div>
       <div className="relative flex-1 z-10">
@@ -70,7 +70,7 @@ export default function SearchBar() {
           onChange={(e) => setSearchQuery(e.target.value)}
           type="text"
           placeholder="搜索提示词、参数... (按 / 聚焦)"
-          className="w-full pl-10 pr-8 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          className="w-full pl-10 pr-8 py-2.5 min-h-[44px] rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
         />
         {searchQuery && (
           <button
@@ -84,12 +84,12 @@ export default function SearchBar() {
           </button>
         )}
       </div>
-      <span className="flex-shrink-0 text-xs text-gray-400 tabular-nums self-center">
+      <span className="hidden sm:block flex-shrink-0 text-xs text-gray-400 tabular-nums self-center">
         {filteredCount} 条
       </span>
       <button
         onClick={() => setShowFetchModal(true)}
-        className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+        className="hidden sm:flex flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:bg-gray-50 hover:text-blue-600 transition-colors items-center gap-1.5"
         title="拉取远程任务"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

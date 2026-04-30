@@ -69,7 +69,11 @@ export default function TaskGrid() {
       }
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('touchstart', handleClick as EventListener)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('touchstart', handleClick as EventListener)
+    }
   }, [showFolderPicker])
 
   const handleDelete = (taskId: string) => {
@@ -216,7 +220,7 @@ export default function TaskGrid() {
 
       {/* 浮动操作工具栏 */}
       {hasSelection && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-40 animate-slide-up" style={{ bottom: isNative() ? 'calc(9rem + var(--safe-bottom))' : 'calc(7rem + var(--safe-bottom))' }}>
+        <div className="fixed left-1/2 -translate-x-1/2 z-40 animate-slide-up" style={{ bottom: 'calc(5rem + var(--safe-bottom))' }}>
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.1)] ring-1 ring-black/5">
             {/* 全选 / 取消 */}
             <button

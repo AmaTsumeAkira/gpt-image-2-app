@@ -28,7 +28,11 @@ export default function Select({ value, onChange, options, disabled, className }
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside as EventListener)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside as EventListener)
+    }
   }, [])
 
   const handleToggle = useCallback(

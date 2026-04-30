@@ -185,7 +185,7 @@ export default function InputBar() {
         </div>
       )}
 
-      <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-3 sm:px-4 transition-all duration-300" style={{ bottom: isNative() ? `calc(4.5rem + var(--safe-bottom))` : `calc(1rem + var(--safe-bottom))` }}>
+      <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-3 sm:px-4 transition-all duration-300" style={{ bottom: `calc(1rem + var(--safe-bottom))` }}>
         <div className="bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 ring-1 ring-black/5">
           <div className="flex items-end gap-3">
             {/* 输入框 */}

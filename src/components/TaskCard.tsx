@@ -24,6 +24,7 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
   const folderPickerRef = useRef<HTMLDivElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const longPressStartRef = useRef({ x: 0, y: 0 })
   const folders = useStore((s) => s.folders)
   const mobile = isMobile()
 
@@ -35,6 +36,7 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
   // 长按上下文菜单
   const handleTouchStartLong = useCallback((e: React.TouchEvent) => {
     swipeHandlers.onTouchStart(e)
+    longPressStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     longPressTimerRef.current = setTimeout(() => {
       hapticImpact('medium')
       setShowContextMenu(true)
@@ -47,7 +49,12 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
   }, [swipeHandlers])
 
   const handleTouchMoveLong = useCallback((e: React.TouchEvent) => {
-    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+    // 移动超过 10px 时取消长按
+    const dx = e.touches[0].clientX - longPressStartRef.current.x
+    const dy = e.touches[0].clientY - longPressStartRef.current.y
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+    }
     swipeHandlers.onTouchMove(e)
   }, [swipeHandlers])
 
@@ -63,7 +70,11 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
       }
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('touchstart', handleClick as EventListener)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('touchstart', handleClick as EventListener)
+    }
   }, [showFolderPicker, showContextMenu])
 
   // 定时更新运行中任务的计时
@@ -354,6 +365,10 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
             <button onClick={() => { onReuse(); setShowContextMenu(false) }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               复用配置
+            </button>
+            <button onClick={() => { onToggleSelect(); setShowContextMenu(false) }} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${selected ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-700 hover:bg-gray-50'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {selected ? '取消选择' : '选择'}
             </button>
             <button onClick={() => { onDelete(); setShowContextMenu(false) }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

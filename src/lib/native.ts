@@ -1,4 +1,11 @@
 import { isNative } from './platform'
+import { registerPlugin } from '@capacitor/core'
+
+interface GallerySaverPlugin {
+  saveToGallery(options: { filePath: string; fileName: string; mimeType: string }): Promise<{ uri: string; displayName: string }>
+}
+
+const GallerySaver = registerPlugin<GallerySaverPlugin>('GallerySaver')
 
 /** 触觉反馈 */
 export async function hapticImpact(style: 'light' | 'medium' | 'heavy' = 'light') {
@@ -71,12 +78,11 @@ export function onNetworkChange(callback: (connected: boolean) => void): () => v
   return () => cleanup?.()
 }
 
-/** 原生下载图片到手机（通过系统分享保存到相册） */
+/** 原生下载图片到手机（保存到相册） */
 export async function downloadImage(url: string, filename: string): Promise<boolean> {
   if (!isNative()) return false
   try {
     const { Filesystem, Directory } = await import('@capacitor/filesystem')
-    const { Share } = await import('@capacitor/share')
 
     const resp = await fetch(url)
     const blob = await resp.blob()
@@ -91,20 +97,34 @@ export async function downloadImage(url: string, filename: string): Promise<bool
     })
 
     const ext = blob.type.split('/')[1] || 'png'
+    const mimeType = blob.type || 'image/png'
     const path = `download_${Date.now()}.${ext}`
+
+    // 写入缓存
     const written = await Filesystem.writeFile({
       path,
       data: base64,
       directory: Directory.Cache,
     })
 
-    await Share.share({
-      title: filename,
-      files: [written.uri],
-    })
+    // 通过原生插件保存到相册
+    try {
+      await GallerySaver.saveToGallery({
+        filePath: written.uri,
+        fileName: `${filename}.${ext}`,
+        mimeType,
+      })
+      return true
+    } catch (e) {
+      console.warn('GallerySaver failed, falling back to Share:', e)
+    }
 
+    // 降级：使用系统分享
+    const { Share } = await import('@capacitor/share')
+    await Share.share({ title: filename, files: [written.uri] })
     return true
-  } catch {
+  } catch (e) {
+    console.error('downloadImage failed:', e)
     return false
   }
 }

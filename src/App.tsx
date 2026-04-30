@@ -117,7 +117,7 @@ export default function App() {
         </div>
       )}
       <div className="px-4 sm:px-6 pb-48"
-        style={{ paddingBottom: isNative() ? 'calc(16rem + var(--safe-bottom))' : 'calc(12rem + var(--safe-bottom))' }}
+        style={{ paddingBottom: 'calc(12rem + var(--safe-bottom))' }}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         <div className="flex gap-4 sm:gap-6 mt-4">
           {/* 左侧参数面板（桌面端显示） */}
@@ -146,7 +146,7 @@ export default function App() {
       <DbManageModal />
       <ConfirmDialog />
       <Toast />
-      {isNative() && <BottomNav />}
+      <BottomNav />
     </>
   )
 }

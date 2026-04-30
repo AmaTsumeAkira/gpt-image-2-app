@@ -3,6 +3,7 @@ import { normalizeBaseUrl, queryBalance } from '../lib/api'
 import { useStore, clearAllData } from '../store'
 import { DEFAULT_SETTINGS, type AppSettings } from '../types'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { isNative } from '../lib/platform'
 
 export default function SettingsModal() {
@@ -95,6 +96,7 @@ export default function SettingsModal() {
   }, [draft, timeoutInput])
 
   useCloseOnEscape(showSettings, handleClose)
+  useBodyScrollLock(showSettings)
 
   if (!showSettings) return null
 

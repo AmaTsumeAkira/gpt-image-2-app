@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore, getTaskStats, type TaskStats } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 export default function StatsModal() {
   const showStats = useStore((s) => s.showStats)
@@ -9,6 +10,7 @@ export default function StatsModal() {
   const [stats, setStats] = useState<TaskStats | null>(null)
 
   useCloseOnEscape(showStats, () => setShowStats(false))
+  useBodyScrollLock(showStats)
 
   useEffect(() => {
     if (showStats) setStats(getTaskStats())
