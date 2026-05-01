@@ -8,6 +8,14 @@ import { normalizeImageSize } from './lib/size'
 import { saveTasks, loadTasks, clearTasks, migrateFromLocalStorage, saveCacheMap, loadCacheMap } from './lib/imageStore'
 import { compositeImages } from './lib/composite'
 
+/** 判断是否为网络/超时错误（可重试） */
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) return true
+  if (err instanceof DOMException && err.name === 'AbortError') return true
+  const msg = err instanceof Error ? err.message : String(err)
+  return /网络|network|fetch|abort|timeout|Failed|ECONNREFUSED|ENETUNREACH/i.test(msg)
+}
+
 // ===== 简单的内存 image cache =====
 const imageCache = new Map<string, string>()
 
@@ -748,9 +756,23 @@ export async function submitTask() {
     }
 
     try {
-      const result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls, maskDataUrl)
-      const finishedAt = Date.now()
+      // 网络错误重试 3 次（CapacitorHttp 原生层保持连接，切后台后恢复可继续）
+      let result: Awaited<ReturnType<typeof submitGenerationSync>> | undefined
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls, maskDataUrl)
+          break
+        } catch (err) {
+          if (attempt < 3 && isNetworkError(err)) {
+            updateTaskInStore(taskId, { progress: Math.round(attempt * 30) })
+            continue
+          }
+          throw err
+        }
+      }
+      if (!result) throw new Error('生成失败')
 
+      const finishedAt = Date.now()
       updateTaskInStore(taskId, {
         outputUrls: [...result.images],
         compositeInputUrl,
@@ -882,40 +904,57 @@ async function executeTask(taskId: string) {
     const maxAttempts = Math.max(1, Math.ceil(((settings.timeout * 1000) - firstDelay) / pollInterval))
     await new Promise((r) => setTimeout(r, Math.min(firstDelay, settings.timeout * 1000)))
     let attempts = 0
+    let networkErrors = 0
 
     while (attempts < maxAttempts) {
       attempts++
 
-      const data = await queryTask(settings, remoteTaskId)
-      if (!data) continue
+      try {
+        const data = await queryTask(settings, remoteTaskId)
+        networkErrors = 0
 
-      updateTaskInStore(taskId, { progress: data.progress ?? 0 })
-
-      if (data.status === 'completed') {
-        // 任务完成，获取图片 URL
-        const imageUrls: string[] = []
-        if (data.result?.images) {
-          for (const img of data.result.images) {
-            if (img.url && img.url.length > 0) {
-              imageUrls.push(...img.url)
-            }
-          }
+        if (!data) {
+          await new Promise((r) => setTimeout(r, pollInterval))
+          continue
         }
 
-        updateTaskInStore(taskId, {
-          status: 'completed',
-          outputUrls: imageUrls,
-          finishedAt: Date.now(),
-          elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
-        })
+        updateTaskInStore(taskId, { progress: data.progress ?? 0 })
 
-        showToast(`生成完成，共 ${imageUrls.length} 张图片`, 'success')
-        return
+        if (data.status === 'completed') {
+          const imageUrls: string[] = []
+          if (data.result?.images) {
+            for (const img of data.result.images) {
+              if (img.url && img.url.length > 0) {
+                imageUrls.push(...img.url)
+              }
+            }
+          }
+
+          updateTaskInStore(taskId, {
+            status: 'completed',
+            outputUrls: imageUrls,
+            finishedAt: Date.now(),
+            elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
+          })
+
+          showToast(`生成完成，共 ${imageUrls.length} 张图片`, 'success')
+          return
+        }
+
+        if (data.status === 'failed') {
+          throw new Error(data.fail_reason || data.error?.message || '生成失败')
+        }
+      } catch (err) {
+        if (isNetworkError(err)) {
+          networkErrors++
+          if (networkErrors >= 5) throw new Error('网络连接失败，请检查网络')
+          await new Promise((r) => setTimeout(r, pollInterval))
+          continue
+        }
+        throw err
       }
 
-      if (data.status === 'failed') {
-        throw new Error(data.fail_reason || data.error?.message || '生成失败')
-      }
+      await new Promise((r) => setTimeout(r, pollInterval))
     }
 
     throw new Error(`任务超时（${settings.timeout}秒）`)
@@ -951,7 +990,7 @@ export async function retryTask(taskId: string) {
   const cfg = PROVIDER_CONFIG[settings.provider]
 
   if (cfg && !cfg.isAsync) {
-    // DM-Fox 同步模式
+    // DM-Fox 同步模式（网络错误重试 3 次）
     try {
       const inputImages = useStore.getState().inputImages
       let inputDataUrls: string[] | undefined
@@ -960,7 +999,21 @@ export async function retryTask(taskId: string) {
           .filter((img) => task.inputImageIds!.includes(img.id))
           .map((img) => img.dataUrl)
       }
-      const result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls)
+
+      let result: Awaited<ReturnType<typeof submitGenerationSync>> | undefined
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls)
+          break
+        } catch (err) {
+          if (attempt < 3 && isNetworkError(err)) {
+            updateTaskInStore(taskId, { progress: Math.round(attempt * 30) })
+            continue
+          }
+          throw err
+        }
+      }
+      if (!result) throw new Error('重试失败')
       updateTaskInStore(taskId, {
         status: 'completed',
         outputUrls: result.images,
@@ -993,32 +1046,48 @@ export async function retryTask(taskId: string) {
     const maxAttempts = Math.max(1, Math.ceil(((settings.timeout * 1000) - firstDelay) / pollInterval))
     await new Promise((r) => setTimeout(r, Math.min(firstDelay, settings.timeout * 1000)))
     let attempts = 0
+    let networkErrors = 0
 
     while (attempts < maxAttempts) {
       attempts++
-      const data = await queryTask(settings, remoteTaskId)
-      if (!data) continue
+      try {
+        const data = await queryTask(settings, remoteTaskId)
+        networkErrors = 0
 
-      updateTaskInStore(taskId, { progress: data.progress ?? 0 })
-
-      if (data.status === 'completed') {
-        const imageUrls: string[] = []
-        if (data.result?.images) {
-          for (const img of data.result.images) {
-            if (img.url && img.url.length > 0) imageUrls.push(...img.url)
-          }
+        if (!data) {
+          await new Promise((r) => setTimeout(r, pollInterval))
+          continue
         }
-        updateTaskInStore(taskId, {
-          status: 'completed',
-          outputUrls: imageUrls,
-          finishedAt: Date.now(),
-          elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
-        })
-        showToast('重试成功', 'success')
-        return
-      }
 
-      if (data.status === 'failed') throw new Error(data.fail_reason || data.error?.message || '生成失败')
+        updateTaskInStore(taskId, { progress: data.progress ?? 0 })
+
+        if (data.status === 'completed') {
+          const imageUrls: string[] = []
+          if (data.result?.images) {
+            for (const img of data.result.images) {
+              if (img.url && img.url.length > 0) imageUrls.push(...img.url)
+            }
+          }
+          updateTaskInStore(taskId, {
+            status: 'completed',
+            outputUrls: imageUrls,
+            finishedAt: Date.now(),
+            elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
+          })
+          showToast('重试成功', 'success')
+          return
+        }
+
+        if (data.status === 'failed') throw new Error(data.fail_reason || data.error?.message || '生成失败')
+      } catch (err) {
+        if (isNetworkError(err)) {
+          networkErrors++
+          if (networkErrors >= 5) throw new Error('网络连接失败，请检查网络')
+          await new Promise((r) => setTimeout(r, pollInterval))
+          continue
+        }
+        throw err
+      }
 
       await new Promise((r) => setTimeout(r, pollInterval))
     }
@@ -1059,6 +1128,34 @@ export async function restoreTasks(): Promise<TaskRecord[]> {
   return []
 }
 
+/** 恢复中断的 in_progress 任务 */
+export function resumeInProgressTasks() {
+  const { tasks, showToast } = useStore.getState()
+  const pendingTasks = tasks.filter(
+    (t) => (t.status === 'in_progress' || t.status === 'submitted') && t.remoteTaskId,
+  )
+  const stuckSyncTasks = tasks.filter(
+    (t) => t.status === 'in_progress' && !t.remoteTaskId,
+  )
+
+  // 同步任务（DM-Fox）无法恢复轮询，标记为失败提示重试
+  for (const t of stuckSyncTasks) {
+    updateTaskInStore(t.id, {
+      status: 'failed',
+      error: 'APP 被中断，请重试',
+      finishedAt: Date.now(),
+    })
+  }
+
+  // 异步任务（APIMart）恢复轮询
+  if (pendingTasks.length > 0) {
+    showToast(`正在恢复 ${pendingTasks.length} 个任务...`, 'info')
+    for (const t of pendingTasks) {
+      executeTask(t.id).catch(() => {})
+    }
+  }
+}
+
 /** 初始化 store */
 export async function initStore() {
   // 先加载缓存再设置任务，保证 TaskCard 渲染时缓存已就绪
@@ -1068,6 +1165,9 @@ export async function initStore() {
   // 强制刷新一次，确保任何缓存竞争条件被覆盖
   useStore.getState().setTasks([...useStore.getState().tasks])
   clearExpiredPhotos()
+
+  // 恢复中断的任务
+  resumeInProgressTasks()
 }
 
 /** 复用任务配置 */

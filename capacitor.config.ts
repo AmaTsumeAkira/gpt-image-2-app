@@ -8,6 +8,11 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true,
     },
+    StatusBar: {
+      backgroundColor: '#ffffff',
+      style: 'LIGHT',
+      overlaysWebView: false,
+    },
   },
   server: {
     allowNavigation: [

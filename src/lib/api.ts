@@ -353,6 +353,28 @@ async function fetchWithRetry(
 }
 
 /**
+ * 带重试但无超时的 fetch（用于 DM-Fox 长时间同步请求）
+ * 不使用 AbortController，依赖 CapacitorHttp 原生层保持连接
+ * APP 切后台时原生 HTTP 层继续工作，WebView 恢复后 promise 自然 resolve
+ */
+async function fetchWithRetryNoTimeout(url: string, init: RequestInit): Promise<Response> {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fetch(url, init)
+    } catch (err) {
+      const isNetwork = err instanceof TypeError || (err instanceof DOMException && err.name === 'AbortError')
+      if (attempt < maxAttempts && isNetwork) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt))
+        continue
+      }
+      throw err
+    }
+  }
+  throw new Error('请求失败')
+}
+
+/**
  * 同步图像生成（适用于 DM-Fox 等 OpenAI 兼容供应商，直接返回图片）
  *
  * - 文生图：POST /v1/images/generations（JSON body）
@@ -379,7 +401,6 @@ export async function submitGenerationSync(
 
   const hasInput = inputImageDataUrls && inputImageDataUrls.length > 0
   const isDmfox = settings.baseUrl.includes('dm-fox.rjj.cc')
-  const timeoutMs = (settings.timeout || 300) * 1000
 
   // Capacitor 环境下没有 Vite proxy，需要直连
   const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
@@ -408,11 +429,11 @@ export async function submitGenerationSync(
     }
 
     return parseSyncResponse(
-      await fetchWithRetry(apiUrl, {
+      await fetchWithRetryNoTimeout(apiUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${settings.apiKey}` },
         body: formData,
-      }, timeoutMs),
+      }),
       mime,
     )
   }
@@ -421,7 +442,7 @@ export async function submitGenerationSync(
   const apiUrl = syncUrl('images/generations')
 
   return parseSyncResponse(
-    await fetchWithRetry(apiUrl, {
+    await fetchWithRetryNoTimeout(apiUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${settings.apiKey}`,
@@ -434,7 +455,7 @@ export async function submitGenerationSync(
         quality: params.quality,
         n: params.n || 1,
       }),
-    }, timeoutMs),
+    }),
     mime,
   )
 }

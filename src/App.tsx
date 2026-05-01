@@ -4,7 +4,8 @@ import { useStore } from './store'
 import { normalizeBaseUrl } from './lib/api'
 import { isNative } from './lib/platform'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
-import { setStatusBarStyle, setStatusBarColor, onNetworkChange } from './lib/native'
+import { setStatusBarStyle, setStatusBarColor, onNetworkChange, onAppStateChange } from './lib/native'
+import { resumeInProgressTasks } from './store'
 import Header from './components/Header'
 import FolderBar from './components/FolderBar'
 import SearchBar from './components/SearchBar'
@@ -35,18 +36,22 @@ export default function App() {
   const { pullDistance, refreshing, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(refreshTasks)
   const [offline, setOffline] = useState(false)
 
-  // 状态栏 + 网络监听
+  // 状态栏 + 网络监听 + 生命周期
   useEffect(() => {
     if (isNative()) {
       setStatusBarStyle(false)
       setStatusBarColor('#ffffff')
     }
-    const cleanup = onNetworkChange((connected) => {
+    const cleanupNet = onNetworkChange((connected) => {
       setOffline(!connected)
       if (!connected) showToast('网络已断开', 'error')
       else showToast('网络已恢复', 'success')
     })
-    return cleanup
+    // APP 回到前台时恢复中断的任务
+    const cleanupApp = onAppStateChange(({ isActive }) => {
+      if (isActive) resumeInProgressTasks()
+    })
+    return () => { cleanupNet(); cleanupApp() }
   }, [])
 
   useEffect(() => {

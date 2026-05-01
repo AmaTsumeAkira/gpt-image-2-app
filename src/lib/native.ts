@@ -83,6 +83,26 @@ export function onNetworkChange(callback: (connected: boolean) => void): () => v
   return () => cleanup?.()
 }
 
+/** 监听 APP 前后台切换 */
+export function onAppStateChange(callback: (state: { isActive: boolean }) => void): () => void {
+  let cleanup: (() => void) | undefined
+
+  ;(async () => {
+    try {
+      const { App } = await import('@capacitor/app')
+      const handle = await App.addListener('appStateChange', callback)
+      cleanup = () => { handle.remove() }
+    } catch {
+      // 浏览器 fallback：用 visibilitychange
+      const onVisibility = () => callback({ isActive: !document.hidden })
+      document.addEventListener('visibilitychange', onVisibility)
+      cleanup = () => document.removeEventListener('visibilitychange', onVisibility)
+    }
+  })()
+
+  return () => cleanup?.()
+}
+
 /** 原生下载图片到手机（保存到相册） */
 export async function downloadImage(url: string, filename: string): Promise<boolean> {
   if (!isNative()) return false

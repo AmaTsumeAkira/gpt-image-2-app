@@ -27,12 +27,22 @@ export default function UpdateBanner() {
       return
     }
 
+    if (!info.downloadUrl) {
+      showToast('无下载链接', 'error')
+      return
+    }
+
     setDownloading(true)
     try {
+      showToast('正在下载...', 'info')
       const { Filesystem, Directory } = await import('@capacitor/filesystem')
 
       const resp = await fetch(info.downloadUrl)
+      if (!resp.ok) throw new Error(`下载失败: HTTP ${resp.status}`)
+
       const blob = await resp.blob()
+      console.log('[UpdateBanner] downloaded', blob.size, 'bytes')
+
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
         reader.onloadend = () => resolve((reader.result as string).split(',')[1])
@@ -47,10 +57,12 @@ export default function UpdateBanner() {
         directory: Directory.Cache,
       })
 
+      console.log('[UpdateBanner] written to:', written.uri)
+      showToast('正在安装...', 'info')
       await Installer.installApk({ filePath: written.uri })
     } catch (e) {
-      console.error('Update download failed:', e)
-      showToast('下载更新失败', 'error')
+      console.error('[UpdateBanner] update failed:', e)
+      showToast(`更新失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
     } finally {
       setDownloading(false)
     }

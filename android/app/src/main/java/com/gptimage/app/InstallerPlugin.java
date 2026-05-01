@@ -21,11 +21,18 @@ public class InstallerPlugin extends Plugin {
         }
 
         try {
-            File file = new File(filePath.replace("file://", ""));
+            // 处理 file:// 前缀
+            String path = filePath;
+            if (path.startsWith("file://")) {
+                path = path.substring(7);
+            }
+            File file = new File(path);
             if (!file.exists()) {
-                call.reject("APK file not found");
+                call.reject("APK file not found: " + path);
                 return;
             }
+
+            android.util.Log.d("InstallerPlugin", "Installing APK: " + file.getAbsolutePath() + " size=" + file.length());
 
             String authority = getContext().getPackageName() + ".fileprovider";
             Uri uri = FileProvider.getUriForFile(getContext(), authority, file);
@@ -38,6 +45,7 @@ public class InstallerPlugin extends Plugin {
 
             call.resolve();
         } catch (Exception e) {
+            android.util.Log.e("InstallerPlugin", "Install failed", e);
             call.reject("Install failed: " + e.getMessage(), e);
         }
     }
