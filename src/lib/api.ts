@@ -108,16 +108,22 @@ export async function submitGeneration(
 
   if (!response.ok) {
     let errorMsg = `HTTP ${response.status}`
+    let errorBody = ''
     try {
       const errJson = await response.json()
-      if (errJson.error?.message) errorMsg = errJson.error.message
-    } catch {
-      try {
-        errorMsg = await response.text()
-      } catch {
-        /* ignore */
+      if (errJson.error?.message) {
+        errorMsg = errJson.error.message
+      } else {
+        errorBody = JSON.stringify(errJson)
       }
+    } catch {
+      try { errorBody = await response.text() } catch { /* ignore */ }
     }
+    if (!errorMsg.startsWith('HTTP') && errorBody) {
+      const clean = errorBody.trim()
+      if (clean.length > 0 && clean.length < 200) errorMsg = clean
+    }
+    console.error('[submitGeneration] error', { status: response.status, statusText: response.statusText, errorMsg })
     throw new Error(errorMsg)
   }
 
@@ -267,7 +273,13 @@ async function parseSyncResponse(
       try {
         const errJson = JSON.parse(errorBody)
         if (errJson.error?.message) errorMsg = errJson.error.message
-      } catch { /* 非 JSON 响应 */ }
+      } catch {
+        // 非 JSON 响应（如 DM-Fox 的纯文本错误）→ 直接用响应体作为错误信息
+        const clean = errorBody.trim()
+        if (clean && clean.length > 0 && clean.length < 200) {
+          errorMsg = clean
+        }
+      }
     } catch {
       /* 无法读取响应体 */
     }
