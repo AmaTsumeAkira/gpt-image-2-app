@@ -9,6 +9,7 @@ tsconfig.tsbuildinfo
 /android/.gradle/
 /android/.idea/
 /android/*.local.properties
+/android/keystore.properties
 /android/capacitor.settings.gradle
 
 # OS

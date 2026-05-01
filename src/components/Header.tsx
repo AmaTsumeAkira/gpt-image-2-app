@@ -3,7 +3,12 @@ import { useStore, cacheAllRemoteImages, clearFailedTasks } from '../store'
 import { queryBalance } from '../lib/api'
 import ProviderSwitcher from './ProviderSwitcher'
 
-export default function Header() {
+interface Props {
+  darkMode: boolean
+  onToggleDark: () => void
+}
+
+export default function Header({ darkMode, onToggleDark }: Props) {
   const setShowSettings = useStore((s) => s.setShowSettings)
   const setShowDbManage = useStore((s) => s.setShowDbManage)
   const setShowStats = useStore((s) => s.setShowStats)
@@ -59,18 +64,18 @@ export default function Header() {
   }, [showMore])
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-gray-200" style={{ paddingTop: 'var(--safe-top)' }}>
+    <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur border-b border-gray-200 dark:border-gray-800" style={{ paddingTop: 'var(--safe-top)' }}>
       <div className="px-4 sm:px-6 h-14 flex items-center justify-between">
       {/* 缓存进度条 */}
       {caching && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-100">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-100 dark:bg-blue-900">
           <div
             className="h-full bg-blue-500 transition-all duration-300 ease-out"
             style={{ width: `${(caching.done / caching.total) * 100}%` }}
           />
         </div>
       )}
-        <h1 className="text-lg font-bold text-gray-800 tracking-tight flex items-center gap-2">
+        <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100 tracking-tight flex items-center gap-2">
           <svg className="w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <rect x="3" y="3" width="18" height="18" rx="4" />
             <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
@@ -80,12 +85,32 @@ export default function Header() {
         </h1>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <ProviderSwitcher />
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+          {/* 暗色模式切换 */}
+          <button
+            onClick={onToggleDark}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            title={darkMode ? '切换亮色模式' : '切换暗色模式'}
+            aria-label="切换暗色模式"
+          >
+            {darkMode ? (
+              <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+              </svg>
+            )}
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
           {/* 余额显示（仅 APIMart） */}
           {settings.apiKey && settings.provider === 'apimart' && (
             <button
               onClick={loadBalance}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono text-gray-500 hover:bg-gray-100 transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               title="点击刷新余额"
             >
               {balanceLoading ? (
@@ -118,10 +143,10 @@ export default function Header() {
               </svg>
             </button>
             {showMore && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-gray-200 shadow-lg py-1 animate-dropdown-down z-50">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-dropdown-down z-50">
                 {/* 手机端显示余额 */}
                 {settings.apiKey && settings.provider === 'apimart' && balance && (
-                  <div className="sm:hidden px-3 py-2 text-xs text-gray-500 border-b border-gray-100 flex items-center gap-1.5">
+                  <div className="sm:hidden px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700 flex items-center gap-1.5">
                     <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -144,19 +169,19 @@ export default function Header() {
                       useStore.getState().showToast('没有需要缓存的远程图片', 'info')
                     }
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   style={{ pointerEvents: caching ? 'none' : undefined, opacity: caching ? 0.5 : undefined }}
                 >
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   缓存远程图片
                 </button>
                 <button
                   onClick={() => { setShowMore(false); clearFailedTasks() }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 2 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                   清理失败记录

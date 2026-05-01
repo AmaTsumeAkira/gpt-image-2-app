@@ -11,13 +11,22 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
+.dark {
+  color-scheme: dark;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
 
+.dark * {
+  scrollbar-color: #4b5563 transparent;
+}
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.dark ::-webkit-scrollbar-thumb { background: #4b5563; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 ::-webkit-scrollbar-track { background: transparent; }
 
@@ -169,4 +178,60 @@ input[type="number"] {
   input, textarea, select {
     font-size: 16px;
   }
+}
+
+/* ===== 暗色模式全局覆盖 ===== */
+.dark .bg-white,
+.dark .bg-white\/50,
+.dark .bg-white\/60,
+.dark .bg-white\/70,
+.dark .bg-white\/80,
+.dark .bg-white\/95 {
+  @apply !bg-gray-800;
+}
+.dark .bg-gray-50 {
+  @apply !bg-gray-900;
+}
+.dark .bg-gray-100 {
+  @apply !bg-gray-700;
+}
+.dark .text-gray-800 {
+  @apply !text-gray-100;
+}
+.dark .text-gray-700 {
+  @apply !text-gray-200;
+}
+.dark .text-gray-600 {
+  @apply !text-gray-300;
+}
+.dark .text-gray-500 {
+  @apply !text-gray-400;
+}
+.dark .text-gray-400 {
+  @apply !text-gray-500;
+}
+.dark .border-gray-200,
+.dark .border-gray-200\/60,
+.dark .border-gray-200\/70 {
+  @apply !border-gray-700;
+}
+.dark .border-gray-100 {
+  @apply !border-gray-800;
+}
+.dark .shadow-sm {
+  @apply !shadow-gray-900/30;
+}
+.dark .shadow-lg,
+.dark .shadow-2xl {
+  @apply !shadow-gray-950/50;
+}
+.dark .ring-black\/5 {
+  @apply !ring-white/5;
+}
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-gray-50:hover {
+  @apply !bg-gray-700;
+}
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  @apply !border-gray-700;
 }

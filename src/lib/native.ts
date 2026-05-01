@@ -153,3 +153,66 @@ export async function downloadImage(url: string, filename: string): Promise<bool
     return false
   }
 }
+
+/** 分享图片到其他应用 */
+export async function shareImage(url: string, title?: string): Promise<boolean> {
+  try {
+    // 先用 dataUrl 或远程 URL 获取 blob
+    const resp = await fetch(url)
+    const blob = await resp.blob()
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result as string
+        resolve(result.split(',')[1])
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+
+    const ext = blob.type.split('/')[1] || 'png'
+    const mimeType = blob.type || 'image/png'
+    const path = `share_${Date.now()}.${ext}`
+
+    // 写入缓存后分享
+    const { Filesystem, Directory } = await import('@capacitor/filesystem')
+    const written = await Filesystem.writeFile({
+      path,
+      data: base64,
+      directory: Directory.Cache,
+    })
+
+    const { Share } = await import('@capacitor/share')
+    await Share.share({ title: title || 'GPT Image', files: [written.uri] })
+    return true
+  } catch (e) {
+    console.error('shareImage failed:', e)
+    // 浏览器降级：Web Share API
+    try {
+      if (navigator.share) {
+        const resp = await fetch(url)
+        const blob = await resp.blob()
+        const file = new File([blob], `image.${blob.type.split('/')[1] || 'png'}`, { type: blob.type })
+        await navigator.share({ title: title || 'GPT Image', files: [file] })
+        return true
+      }
+    } catch { /* ignore */ }
+    return false
+  }
+}
+
+/** 批量保存图片到相册，返回成功/失败数量 */
+export async function batchDownloadImages(
+  images: Array<{ url: string; filename: string }>,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ success: number; failed: number }> {
+  let success = 0
+  let failed = 0
+  for (let i = 0; i < images.length; i++) {
+    const ok = await downloadImage(images[i].url, images[i].filename)
+    if (ok) success++
+    else failed++
+    onProgress?.(i + 1, images.length)
+  }
+  return { success, failed }
+}

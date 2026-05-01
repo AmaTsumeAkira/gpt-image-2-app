@@ -36,6 +36,20 @@ export default function App() {
   const { pullDistance, refreshing, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(refreshTasks)
   const [offline, setOffline] = useState(false)
 
+  // 暗色模式
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('gpt-image-2-dark-mode')
+    return saved === '1' || (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  })
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('gpt-image-2-dark-mode', darkMode ? '1' : '0')
+    if (isNative()) {
+      setStatusBarStyle(darkMode)
+      setStatusBarColor(darkMode ? '#111827' : '#ffffff')
+    }
+  }, [darkMode])
+
   // 状态栏 + 网络监听 + 生命周期
   useEffect(() => {
     if (isNative()) {
@@ -101,7 +115,7 @@ export default function App() {
 
   return (
     <>
-      <Header />
+      <Header darkMode={darkMode} onToggleDark={() => setDarkMode((v) => !v)} />
       <UpdateBanner />
       {/* 离线提示 */}
       {offline && (

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useStore, reuseConfig, removeTask, removeTasks, moveTasksToFolder } from '../store'
 import { isNative } from '../lib/platform'
-import { downloadImage } from '../lib/native'
+import { batchDownloadImages } from '../lib/native'
 import TaskCard from './TaskCard'
 
 export default function TaskGrid() {
@@ -94,31 +94,46 @@ export default function TaskGrid() {
   }
 
   const handleBatchDownload = async () => {
-    let downloaded = 0
+    // 收集所有需要下载的图片
+    const toDownload: Array<{ url: string; filename: string }> = []
     for (const taskId of selectedTaskIds) {
       const task = tasks.find((t) => t.id === taskId)
       if (!task?.outputUrls?.length) continue
       for (let i = 0; i < task.outputUrls.length; i++) {
-        const filename = `gpt-image-2-${task.id.slice(-8)}-${i + 1}`
-        if (isNative()) {
-          const ok = await downloadImage(task.outputUrls[i], filename)
-          if (ok) downloaded++
-        } else {
-          try {
-            const resp = await fetch(task.outputUrls[i])
-            const blob = await resp.blob()
-            const a = document.createElement('a')
-            a.href = URL.createObjectURL(blob)
-            a.download = `${filename}.${blob.type.split('/')[1] || 'png'}`
-            a.click()
-            URL.revokeObjectURL(a.href)
-            downloaded++
-          } catch { /* skip failed */ }
-        }
+        toDownload.push({
+          url: task.outputUrls[i],
+          filename: `gpt-image-2-${task.id.slice(-8)}-${i + 1}`,
+        })
       }
     }
-    if (downloaded > 0) showToast(`已下载 ${downloaded} 张图片`, 'success')
-    else showToast('没有可下载的图片', 'info')
+    if (!toDownload.length) { showToast('没有可下载的图片', 'info'); return }
+
+    if (isNative()) {
+      showToast(`正在保存 ${toDownload.length} 张图片...`, 'info')
+      const result = await batchDownloadImages(toDownload, (done, total) => {
+        if (done % 3 === 0 || done === total) {
+          showToast(`已保存 ${done}/${total}`, 'info')
+        }
+      })
+      if (result.success > 0) showToast(`已保存 ${result.success} 张${result.failed ? `，${result.failed} 张失败` : ''}`, 'success')
+      else showToast('保存失败', 'error')
+    } else {
+      let downloaded = 0
+      for (const { url, filename } of toDownload) {
+        try {
+          const resp = await fetch(url)
+          const blob = await resp.blob()
+          const a = document.createElement('a')
+          a.href = URL.createObjectURL(blob)
+          a.download = `${filename}.${blob.type.split('/')[1] || 'png'}`
+          a.click()
+          URL.revokeObjectURL(a.href)
+          downloaded++
+        } catch { /* skip */ }
+      }
+      if (downloaded > 0) showToast(`已下载 ${downloaded} 张图片`, 'success')
+      else showToast('没有可下载的图片', 'info')
+    }
   }
 
   const handleMoveToFolder = (folderId: string) => {
