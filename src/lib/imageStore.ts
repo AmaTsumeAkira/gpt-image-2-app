@@ -67,6 +67,28 @@ export async function loadCacheMap(): Promise<[string, string][]> {
   })
 }
 
+/** 保存缩略图缓存映射表（dataUrl → thumbnail dataUrl） */
+export async function saveThumbCache(entries: [string, string][]): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).put(entries, 'thumbCache')
+    tx.oncomplete = () => { db.close(); resolve() }
+    tx.onerror = () => { db.close(); reject(tx.error) }
+  })
+}
+
+/** 加载缩略图缓存 */
+export async function loadThumbCache(): Promise<[string, string][]> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly')
+    const req = tx.objectStore(STORE_NAME).get('thumbCache')
+    req.onsuccess = () => { db.close(); resolve(req.result ?? []) }
+    req.onerror = () => { db.close(); reject(req.error) }
+  })
+}
+
 /** 首次加载时从 localStorage 迁移已有数据到 IndexedDB */
 export async function migrateFromLocalStorage<T = unknown>(): Promise<T[]> {
   try {

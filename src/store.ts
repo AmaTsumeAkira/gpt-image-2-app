@@ -4,8 +4,10 @@ import type { AppSettings, TaskParams, InputImage, TaskRecord, PhotoLibraryImage
 import { DEFAULT_SETTINGS, DEFAULT_PARAMS, PROVIDER_CONFIG } from './types'
 import { submitGeneration, submitGenerationSync, queryTask, batchQueryTasks, uploadImage, fetchImageAsDataUrl, compressImage } from './lib/api'
 import { hapticImpact, hapticNotification } from './lib/native'
+import { notifyTaskComplete } from './lib/native'
 import { normalizeImageSize } from './lib/size'
 import { saveTasks, loadTasks, clearTasks, migrateFromLocalStorage, saveCacheMap, loadCacheMap } from './lib/imageStore'
+import { saveThumbCache, loadThumbCache } from './lib/imageStore'
 import { compositeImages } from './lib/composite'
 
 /** 判断是否为网络/超时错误（可重试） */
@@ -60,11 +62,25 @@ export function getThumbnail(dataUrl: string): Promise<string> {
       ctx.drawImage(img, 0, 0, w, h)
       const thumb = canvas.toDataURL('image/jpeg', 0.7)
       thumbCache.set(dataUrl, thumb)
+      // 异步持久化到 IndexedDB
+      saveThumbCache(Array.from(thumbCache.entries())).catch(() => {})
       resolve(thumb)
     }
     img.onerror = () => resolve(dataUrl) // fallback 原图
     img.src = dataUrl
   })
+}
+
+/** 从 IndexedDB 恢复缩略图缓存 */
+export async function initThumbCache() {
+  try {
+    const entries = await loadThumbCache()
+    for (const [key, thumb] of entries) {
+      thumbCache.set(key, thumb)
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function initRemoteImageCache() {
@@ -937,6 +953,10 @@ async function executeTask(taskId: string) {
             elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
           })
 
+          // 后台时发送系统通知
+          if (document.hidden) {
+            notifyTaskComplete('GPT Image', `生成完成，共 ${imageUrls.length} 张图片`, Date.now() % 100000)
+          }
           showToast(`生成完成，共 ${imageUrls.length} 张图片`, 'success')
           return
         }
@@ -1207,7 +1227,7 @@ export function resumeInProgressTasks() {
 /** 初始化 store */
 export async function initStore() {
   // 先加载缓存再设置任务，保证 TaskCard 渲染时缓存已就绪
-  await initRemoteImageCache()
+  await Promise.all([initRemoteImageCache(), initThumbCache()])
   const tasks = await restoreTasks()
   useStore.getState().setTasks(tasks)
   // 强制刷新一次，确保任何缓存竞争条件被覆盖

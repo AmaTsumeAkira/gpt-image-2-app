@@ -216,3 +216,38 @@ export async function batchDownloadImages(
   }
   return { success, failed }
 }
+
+// ===== 本地通知 =====
+
+let notificationPermitted = false
+
+/** 请求通知权限（APP 启动时调用一次） */
+export async function requestNotificationPermission() {
+  if (!isNative()) return
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications')
+    const result = await LocalNotifications.requestPermissions()
+    notificationPermitted = result.display === 'granted'
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 发送任务完成通知 */
+export async function notifyTaskComplete(title: string, body: string, id: number) {
+  if (!isNative() || !notificationPermitted) return
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications')
+    await LocalNotifications.schedule({
+      notifications: [{
+        id,
+        title,
+        body,
+        smallIcon: 'ic_launcher',
+        largeIcon: 'ic_launcher',
+      }],
+    })
+  } catch {
+    /* ignore */
+  }
+}

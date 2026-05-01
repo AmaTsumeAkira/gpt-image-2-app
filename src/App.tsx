@@ -5,6 +5,7 @@ import { normalizeBaseUrl } from './lib/api'
 import { isNative } from './lib/platform'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { setStatusBarStyle, setStatusBarColor, onNetworkChange, onAppStateChange } from './lib/native'
+import { requestNotificationPermission } from './lib/native'
 import { resumeInProgressTasks } from './store'
 import Header from './components/Header'
 import FolderBar from './components/FolderBar'
@@ -55,6 +56,7 @@ export default function App() {
     if (isNative()) {
       setStatusBarStyle(false)
       setStatusBarColor('#ffffff')
+      requestNotificationPermission()
     }
     const cleanupNet = onNetworkChange((connected) => {
       setOffline(!connected)
