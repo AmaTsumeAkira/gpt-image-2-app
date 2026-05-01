@@ -123,9 +123,13 @@ export default function TaskCard({ task, selected, onReuse, onDelete, onClick, o
     } else {
       return '00:00'
     }
-    const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-    const ss = String(seconds % 60).padStart(2, '0')
-    return `${mm}:${ss}`
+    const hh = Math.floor(seconds / 3600)
+    const mm = Math.floor((seconds % 3600) / 60)
+    const ss = seconds % 60
+    if (hh > 0) {
+      return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+    }
+    return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
   })()
 
   const statusLabel =

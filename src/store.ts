@@ -952,7 +952,7 @@ async function executeTask(taskId: string) {
             status: 'completed',
             outputUrls: imageUrls,
             finishedAt: Date.now(),
-            elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
+            elapsed: data.actual_time ? data.actual_time : Date.now() - task.createdAt,
           })
 
           // 后台时发送系统通知
@@ -1132,7 +1132,7 @@ export async function retryTask(taskId: string) {
             status: 'completed',
             outputUrls: imageUrls,
             finishedAt: Date.now(),
-            elapsed: data.actual_time ? data.actual_time * 1000 : Date.now() - task.createdAt,
+            elapsed: data.actual_time ? data.actual_time : Date.now() - task.createdAt,
           })
           showToast('重试成功', 'success')
           return
@@ -1440,7 +1440,7 @@ export async function fetchRemoteTask(remoteTaskId: string) {
               outputUrls: extractImageUrls(data),
               error: data.fail_reason || data.error?.message || null,
               finishedAt: data.status === 'completed' || data.status === 'failed' ? Date.now() : null,
-              elapsed: data.actual_time ? data.actual_time * 1000 : null,
+              elapsed: data.actual_time ? data.actual_time : null,
             }
           : t,
       )
@@ -1464,7 +1464,7 @@ export async function fetchRemoteTask(remoteTaskId: string) {
       progress: data.progress ?? 0,
       createdAt: Date.now(),
       finishedAt: data.status === 'completed' || data.status === 'failed' ? Date.now() : null,
-      elapsed: data.actual_time ? data.actual_time * 1000 : null,
+      elapsed: data.actual_time ? data.actual_time : null,
     }
 
     const newTasks = [newTask, ...tasks]
