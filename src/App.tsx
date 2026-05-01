@@ -24,7 +24,6 @@ import MaskHelpModal from './components/MaskHelpModal'
 import MaskEditor from './components/MaskEditor'
 import ConfirmDialog from './components/ConfirmDialog'
 import Toast from './components/Toast'
-import BottomNav from './components/BottomNav'
 import UpdateBanner from './components/UpdateBanner'
 
 export default function App() {
@@ -169,7 +168,6 @@ export default function App() {
       <DbManageModal />
       <ConfirmDialog />
       <Toast />
-      <BottomNav />
     </>
   )
 }
