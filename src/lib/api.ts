@@ -339,6 +339,10 @@ async function fetchWithRetry(
         ...init,
         signal: controller.signal,
       })
+      // 记录非 OK 响应用于诊断
+      if (!response.ok) {
+        console.warn('[fetchWithRetry] non-OK response', { url, status: response.status, statusText: response.statusText, attempt })
+      }
       return response
     } catch (err) {
       lastErr = err
@@ -450,7 +454,14 @@ export async function submitGenerationSync(
 
   // 路径 B — 文生图：POST /v1/images/generations（JSON body）
   const apiUrl = syncUrl('images/generations')
-  console.log('[submitGenerationSync:generations]', { apiUrl, model: settings.model, size: resolvedSize, n: params.n, timeoutMs })
+  const reqBody = JSON.stringify({
+    model: settings.model,
+    prompt: prompt.trim(),
+    size: resolvedSize,
+    quality: params.quality,
+    n: params.n || 1,
+  })
+  console.log('[submitGenerationSync:generations]', { apiUrl, body: reqBody, timeoutMs, isCapacitor: isCapacitor })
 
   return parseSyncResponse(
     await fetchWithRetry(apiUrl, {
@@ -459,13 +470,7 @@ export async function submitGenerationSync(
         Authorization: `Bearer ${settings.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: settings.model,
-        prompt: prompt.trim(),
-        size: resolvedSize,
-        quality: params.quality,
-        n: params.n || 1,
-      }),
+      body: reqBody,
     }, timeoutMs),
     mime,
   )
