@@ -89,6 +89,17 @@ export async function loadThumbCache(): Promise<[string, string][]> {
   })
 }
 
+/** 清空 IndexedDB 中的所有数据 */
+export async function clearAllIndexedDB(): Promise<void> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).clear()
+    tx.oncomplete = () => { db.close(); resolve() }
+    tx.onerror = () => { db.close(); reject(tx.error) }
+  })
+}
+
 /** 首次加载时从 localStorage 迁移已有数据到 IndexedDB */
 export async function migrateFromLocalStorage<T = unknown>(): Promise<T[]> {
   try {

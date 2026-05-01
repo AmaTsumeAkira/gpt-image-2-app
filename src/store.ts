@@ -6,7 +6,7 @@ import { submitGeneration, submitGenerationSync, queryTask, batchQueryTasks, upl
 import { hapticImpact, hapticNotification } from './lib/native'
 import { notifyTaskComplete } from './lib/native'
 import { normalizeImageSize } from './lib/size'
-import { saveTasks, loadTasks, clearTasks, migrateFromLocalStorage, saveCacheMap, loadCacheMap } from './lib/imageStore'
+import { saveTasks, loadTasks, clearTasks, clearAllIndexedDB, migrateFromLocalStorage, saveCacheMap, loadCacheMap } from './lib/imageStore'
 import { saveThumbCache, loadThumbCache } from './lib/imageStore'
 import { compositeImages } from './lib/composite'
 
@@ -1332,13 +1332,25 @@ export function moveTasksToFolder(taskIds: string[], folderId: string) {
 
 /** 清空所有数据 */
 export async function clearAllData() {
-  await clearTasks().catch(() => {})
+  // 清空 IndexedDB（任务、远程图片缓存、缩略图缓存全部删除）
+  await clearAllIndexedDB().catch(() => {})
+  // 清空 localStorage（Zustand 持久化：设置、图片库、文件夹）
+  try { localStorage.removeItem('gpt-image-2-app') } catch { /* ignore */ }
+  try { localStorage.removeItem('gpt-image-2-dark-mode') } catch { /* ignore */ }
+  // 清空内存缓存
   imageCache.clear()
-  const { setTasks, clearInputImages, setSettings, setParams, showToast } = useStore.getState()
+  remoteImageCache.clear()
+  thumbCache.clear()
+  const { setTasks, clearInputImages, setSettings, setParams, setPhotoLibrary, setFolders, clearSelection, setSearchQuery, setMaskImage, showToast } = useStore.getState()
   setTasks([])
   clearInputImages()
+  setMaskImage(null)
   setSettings({ ...DEFAULT_SETTINGS })
   setParams({ ...DEFAULT_PARAMS })
+  setPhotoLibrary([])
+  setFolders([])
+  clearSelection()
+  setSearchQuery('')
   showToast('所有数据已清空', 'success')
 }
 
