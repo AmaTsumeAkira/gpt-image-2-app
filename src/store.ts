@@ -746,6 +746,7 @@ export async function submitTask() {
       createdAt,
       finishedAt: null,
       elapsed: null,
+      provider: settings.provider,
     }
     setTasks([task, ...tasks])
     saveTasks([task, ...tasks].slice(0, 200)).catch(() => {})
@@ -826,6 +827,7 @@ export async function submitTask() {
     createdAt: Date.now(),
     finishedAt: null,
     elapsed: null,
+    provider: settings.provider,
   }
 
   const newTasks = [task, ...tasks]
@@ -997,12 +999,11 @@ export async function retryTask(taskId: string) {
 
   hapticImpact('medium')
 
-  // 将任务状态重置为 in_progress
+  // 将任务状态重置为 in_progress，保留原始 createdAt（保持时间线一致）
   updateTaskInStore(taskId, {
     status: 'in_progress',
     error: null,
     progress: 0,
-    createdAt: Date.now(),
     finishedAt: null,
     elapsed: null,
   })
