@@ -25,6 +25,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Auto version
+        id: version
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          BASE=$(node -p "const v=require('./package.json').version.split('.'); v[0]+'.'+v[1]")
+          VERSION="${BASE}.${COMMIT_COUNT}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          node -e "const p=require('./package.json'); p.version='$VERSION'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2)+'\n')"
+          echo "Updated package.json version to $VERSION"
+
       - name: Build web
         run: npm run build
 
@@ -34,8 +44,26 @@ jobs:
       - name: Build APK
         run: cd android && chmod +x gradlew && ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk gpt-image-2-app-v${{ steps.version.outputs.VERSION }}.apk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## 更新内容
+
+            自动构建于 ${{ github.sha }}
+
+            > 提交：${{ github.event.head_commit.message }}
+          files: gpt-image-2-app-v${{ steps.version.outputs.VERSION }}.apk
+          draft: false
+          prerelease: false
+
+      - name: Upload Artifact (backup)
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: gpt-image-2-app-v${{ steps.version.outputs.VERSION }}
+          path: gpt-image-2-app-v${{ steps.version.outputs.VERSION }}.apk

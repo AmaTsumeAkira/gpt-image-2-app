@@ -992,18 +992,36 @@ export async function retryTask(taskId: string) {
   if (cfg && !cfg.isAsync) {
     // DM-Fox 同步模式（网络错误重试 3 次）
     try {
-      const inputImages = useStore.getState().inputImages
+      const { inputImages, maskImage } = useStore.getState()
       let inputDataUrls: string[] | undefined
+      let compositeInputUrl: string | undefined
       if (task.inputImageIds?.length) {
-        inputDataUrls = inputImages
+        const matched = inputImages
           .filter((img) => task.inputImageIds!.includes(img.id))
           .map((img) => img.dataUrl)
+        if (matched.length > 0) {
+          // 压缩大图后再提交
+          const urls = await Promise.all(matched.map((u) => compressImage(u)))
+          if (urls.length > 1) {
+            try {
+              const compositeFormat = maskImage?.dataUrl ? 'png' : task.params.output_format
+              compositeInputUrl = await compositeImages(urls, compositeFormat)
+              inputDataUrls = [compositeInputUrl]
+            } catch {
+              inputDataUrls = [urls[0]]
+            }
+          } else {
+            inputDataUrls = urls
+          }
+        }
       }
+      // 使用当前 store 中的遮罩图
+      const maskDataUrl = maskImage?.dataUrl
 
       let result: Awaited<ReturnType<typeof submitGenerationSync>> | undefined
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls)
+          result = await submitGenerationSync(settings, task.prompt, task.params, inputDataUrls, maskDataUrl)
           break
         } catch (err) {
           if (attempt < 3 && isNetworkError(err)) {
@@ -1017,6 +1035,7 @@ export async function retryTask(taskId: string) {
       updateTaskInStore(taskId, {
         status: 'completed',
         outputUrls: result.images,
+        compositeInputUrl,
         revisedPrompt: result.revisedPrompt,
         usage: result.usage,
         progress: 100,
@@ -1035,9 +1054,29 @@ export async function retryTask(taskId: string) {
     return
   }
 
-  // APIMart 异步模式
+  // APIMart 异步模式：复用已上传的参考图 URL
   try {
-    const remoteTaskId = await submitGeneration(settings, task.prompt, task.params, [])
+    // 收集已上传的参考图 URL（优先使用任务记录的 inputRemoteUrls）
+    const remoteUrls = [...(task.inputRemoteUrls || [])]
+    // 还需要检查当前 store 中的 maskImage（如有也上传）
+    let maskUrl: string | undefined
+    const maskImage = useStore.getState().maskImage
+    if (maskImage) {
+      if (maskImage.remoteUrl) {
+        maskUrl = maskImage.remoteUrl
+      } else if (maskImage.dataUrl) {
+        try {
+          const resp = await fetch(maskImage.dataUrl)
+          const blob = await resp.blob()
+          maskUrl = await uploadImage(settings, blob, `mask-${maskImage.id.slice(0, 8)}.png`)
+          useStore.getState().setMaskImage({ ...maskImage, remoteUrl: maskUrl })
+        } catch {
+          /* 遮罩上传失败不阻塞主流程 */
+        }
+      }
+    }
+
+    const remoteTaskId = await submitGeneration(settings, task.prompt, task.params, remoteUrls, maskUrl)
     updateTaskInStore(taskId, { remoteTaskId })
 
     // 轮询任务状态
@@ -1138,13 +1177,22 @@ export function resumeInProgressTasks() {
     (t) => t.status === 'in_progress' && !t.remoteTaskId,
   )
 
-  // 同步任务（DM-Fox）无法恢复轮询，标记为失败提示重试
-  for (const t of stuckSyncTasks) {
-    updateTaskInStore(t.id, {
-      status: 'failed',
-      error: 'APP 被中断，请重试',
-      finishedAt: Date.now(),
-    })
+  // 同步任务（DM-Fox）无法恢复轮询，标记为失败并提示重试
+  if (stuckSyncTasks.length > 0) {
+    for (const t of stuckSyncTasks) {
+      updateTaskInStore(t.id, {
+        status: 'failed',
+        error: 'APP 被中断，请重试',
+        finishedAt: Date.now(),
+      })
+    }
+    showToast(
+      `${stuckSyncTasks.length} 个同步任务被中断`,
+      'error',
+      stuckSyncTasks.length === 1
+        ? { label: '重试', onClick: () => retryTask(stuckSyncTasks[0].id) }
+        : undefined,
+    )
   }
 
   // 异步任务（APIMart）恢复轮询

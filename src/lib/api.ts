@@ -259,11 +259,17 @@ async function parseSyncResponse(
 ): Promise<import('../types').SyncGenerationResult> {
   if (!response.ok) {
     let errorMsg = `HTTP ${response.status}`
+    let errorBody = ''
     try {
-      const errJson = await response.json()
-      if (errJson.error?.message) errorMsg = errJson.error.message
+      errorBody = await response.text()
+      console.error('[parseSyncResponse] HTTP error', { status: response.status, statusText: response.statusText, body: errorBody.slice(0, 500) })
+      // 尝试解析 JSON 错误消息
+      try {
+        const errJson = JSON.parse(errorBody)
+        if (errJson.error?.message) errorMsg = errJson.error.message
+      } catch { /* 非 JSON 响应 */ }
     } catch {
-      try { errorMsg = await response.text() } catch { /* ignore */ }
+      /* 无法读取响应体 */
     }
     throw new Error(errorMsg)
   }
@@ -314,6 +320,7 @@ async function parseSyncResponse(
 
 /**
  * 带超时和自动重试的 fetch（网络错误最多重试 3 次，指数退避）
+ * 有 AbortController → 服务端能感知客户端断开，避免代理层 502
  */
 async function fetchWithRetry(
   url: string,
@@ -353,9 +360,10 @@ async function fetchWithRetry(
 }
 
 /**
- * 带重试但无超时的 fetch（用于 DM-Fox 长时间同步请求）
+ * 带重试但无超时的 fetch（用于长时间请求）
  * 不使用 AbortController，依赖 CapacitorHttp 原生层保持连接
  * APP 切后台时原生 HTTP 层继续工作，WebView 恢复后 promise 自然 resolve
+ * 注意：仅用于非 DM-Fox 场景；DM-Fox 需要 AbortController 避免代理 502
  */
 async function fetchWithRetryNoTimeout(url: string, init: RequestInit): Promise<Response> {
   const maxAttempts = 3
@@ -401,6 +409,8 @@ export async function submitGenerationSync(
 
   const hasInput = inputImageDataUrls && inputImageDataUrls.length > 0
   const isDmfox = settings.baseUrl.includes('dm-fox.rjj.cc')
+  // DM-Fox 同步请求超时设为 600s（比用户设置的 timeout 更宽松，避免代理层 502）
+  const timeoutMs = isDmfox ? 600_000 : (settings.timeout || 300) * 1000
 
   // Capacitor 环境下没有 Vite proxy，需要直连
   const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
@@ -415,7 +425,7 @@ export async function submitGenerationSync(
     const apiUrl = syncUrl('images/edits')
     const formData = new FormData()
     const imageBlob = dataUrlToBlob(inputImageDataUrls[0])
-    console.log('[submitGenerationSync:edits]', { apiUrl, imageSize: imageBlob.size, imageType: imageBlob.type, hasMask: !!maskDataUrl })
+    console.log('[submitGenerationSync:edits]', { apiUrl, imageSize: imageBlob.size, imageType: imageBlob.type, hasMask: !!maskDataUrl, timeoutMs })
     formData.append('image', imageBlob, 'input.png')
     formData.append('prompt', prompt.trim())
     formData.append('model', settings.model)
@@ -429,20 +439,21 @@ export async function submitGenerationSync(
     }
 
     return parseSyncResponse(
-      await fetchWithRetryNoTimeout(apiUrl, {
+      await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${settings.apiKey}` },
         body: formData,
-      }),
+      }, timeoutMs),
       mime,
     )
   }
 
   // 路径 B — 文生图：POST /v1/images/generations（JSON body）
   const apiUrl = syncUrl('images/generations')
+  console.log('[submitGenerationSync:generations]', { apiUrl, model: settings.model, size: resolvedSize, n: params.n, timeoutMs })
 
   return parseSyncResponse(
-    await fetchWithRetryNoTimeout(apiUrl, {
+    await fetchWithRetry(apiUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${settings.apiKey}`,
@@ -455,7 +466,7 @@ export async function submitGenerationSync(
         quality: params.quality,
         n: params.n || 1,
       }),
-    }),
+    }, timeoutMs),
     mime,
   )
 }
