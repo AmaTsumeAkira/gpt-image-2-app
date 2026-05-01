@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// 从 package.json 读取版本号
+def getAppVersion = { ->
+    def packageJson = new File(project.rootDir.parentFile, 'package.json')
+    if (packageJson.exists()) {
+        def json = new groovy.json.JsonSlurper().parseText(packageJson.text)
+        return json.version ?: '0.1.0'
+    }
+    return '0.1.0'
+}
+
 // 自动递增 versionCode：使用 git commit 数量
 def getVersionCode = { ->
     def code = 100 // 基础版本号
@@ -21,7 +31,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode getVersionCode()
-        versionName "1.0.${getVersionCode()}"
+        versionName "${getAppVersion()}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
